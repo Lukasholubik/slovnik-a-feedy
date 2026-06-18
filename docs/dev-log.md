@@ -4,6 +4,13 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-18 – perf: Odstranění user_has_cap filtru
+
+**Problém:** `user_has_cap` filtr se spouštěl na každý `current_user_can()` call – stovkykrát za stránku.
+**Řešení:** Nahrazeno jednorázovým `admin_init` checkem, který capability doplní jen pokud chybí. Netváří se jako fallback při každém requestu.
+
+---
+
 ## 2026-06-18 – fix: Zařazení do skupiny Grou.cz v admin menu
 
 **Co bylo uděláno:**

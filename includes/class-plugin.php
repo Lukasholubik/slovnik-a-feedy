@@ -46,18 +46,18 @@ final class Plugin {
 	}
 
 	private function register_hooks(): void {
-		// Capability fallback – administrátoři mají vždy manage_glossary.
-		add_filter(
-			'user_has_cap',
-			static function ( array $caps, array $cap, array $args ): array {
-				if ( in_array( 'manage_glossary', $cap, true ) && ! empty( $caps['manage_options'] ) ) {
-					$caps['manage_glossary'] = true;
+		// Jednorázový capability grant – spustí se jen pokud administrátor
+		// manage_glossary ještě nemá (např. po ruční deaktivaci capability).
+		// Použití admin_init místo user_has_cap filtru zabraňuje volání
+		// na každý current_user_can() call (stovky za stránku).
+		add_action( 'admin_init', static function (): void {
+			if ( ! current_user_can( 'manage_glossary' ) && current_user_can( 'manage_options' ) ) {
+				$role = get_role( 'administrator' );
+				if ( $role instanceof \WP_Role ) {
+					$role->add_cap( 'manage_glossary' );
 				}
-				return $caps;
-			},
-			10,
-			3
-		);
+			}
+		} );
 
 		// CPT a taxonomie.
 		$cpt      = new PostType\Cpt();
