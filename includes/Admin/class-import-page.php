@@ -73,6 +73,10 @@ final class ImportPage {
 			$this->handle_back_step1();
 			return;
 		}
+		if ( $action === 'repeat_import' ) {
+			$this->handle_repeat_import();
+			return;
+		}
 		if ( $action === 'resume_session' ) {
 			$this->handle_resume_session();
 			return;
@@ -266,6 +270,57 @@ final class ImportPage {
 			'template'      => $session['template'] ?? '',
 			'settings'      => Settings::get_all(),
 		] );
+	}
+
+	/**
+	 * Zopakuje import ze záznamu v historii.
+	 * Pokud session stále žije → obnoví krok 1 (makra) k úpravám.
+	 * Pokud expirovala → předvyplní krok 0 s URL a streamem.
+	 */
+	private function handle_repeat_import(): void {
+		if ( ! isset( $_POST['saf_repeat_nonce'] )
+			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['saf_repeat_nonce'] ) ), 'saf_repeat_import' )
+		) {
+			$this->view_data['error'] = __( 'Neplatný token.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		$history_id = sanitize_key( $_POST['history_session_id'] ?? '' );
+		$ses        = ImportSessionRegistry::get( $history_id );
+
+		if ( ! $ses ) {
+			$this->view_data['error'] = __( 'Záznam nenalezen.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		// Zkus obnovit živou session.
+		$old_session = $this->load_session( $history_id );
+
+		if ( $old_session ) {
+			// Session stále žije – obnov krok 1 (makra) pro rychlou úpravu.
+			ImportSessionRegistry::update( $history_id, [ 'status' => ImportSessionRegistry::STATUS_ACTIVE ] );
+			$macro_preview = self::apply_macro_names(
+				$old_session['preview_rows'][0] ?? [],
+				$old_session['macro_names'] ?? []
+			);
+			$this->view_data = array_merge( $this->view_data, [
+				'step'         => 1,
+				'session_id'   => $history_id,
+				'columns'      => $old_session['columns']      ?? [],
+				'macro_names'  => $old_session['macro_names']  ?? [],
+				'auto_mapping' => $old_session['mapping']      ?? [],
+				'fields'       => Mapper::FIELDS,
+				'stream'       => $old_session['stream']       ?? [],
+				'preview_rows' => $old_session['preview_rows'] ?? [],
+				'total_rows'   => $old_session['total_rows']   ?? 0,
+				'notice'       => __( '↻ Opakování importu – uprav makra nebo pokračuj přímo na šablonu.', 'slovnik-a-feedy' ),
+			] );
+		} else {
+			// Session expirovala → předvyplň krok 0.
+			$this->view_data['repeat_url']         = $ses['source_url']  ?? '';
+			$this->view_data['repeat_stream_name']  = $ses['stream_name'] ?? '';
+			$this->view_data['notice']              = __( 'Relace vypršela (7 dní). URL je předvyplněna – klikni Nahrát a detekovat sloupce.', 'slovnik-a-feedy' );
+		}
 	}
 
 	/** Obnoví relaci z historie – zobrazí poslední dostupný krok. */

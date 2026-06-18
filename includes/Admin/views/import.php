@@ -58,6 +58,15 @@ $step_labels = [
 	// ── KROK 0 – Zdroj dat ────────────────────────────────────────────────────
 	if ( $step === 0 ) :
 		$stream_options  = \SlovnikAFeedy\StreamManager::get_options();
+		$repeat_url      = $view_data['repeat_url']        ?? '';
+		$repeat_stream   = $view_data['repeat_stream_name'] ?? '';
+		$notice          = $view_data['notice']             ?? '';
+
+		if ( $notice ) : ?>
+	<div class="notice notice-success" style="padding:10px 16px;margin-bottom:12px">
+		<p><?php echo esc_html( $notice ); ?></p>
+	</div>
+	<?php endif; ?>
 		$active_sessions = \SlovnikAFeedy\Admin\ImportSessionRegistry::get_active();
 		$all_sessions    = \SlovnikAFeedy\Admin\ImportSessionRegistry::get_all();
 	?>
@@ -180,8 +189,19 @@ $step_labels = [
 						</span>
 					<?php endif; ?>
 				</td>
-				<td>
+				<td style="white-space:nowrap">
+					<!-- ↻ Zopakovat import -->
 					<form method="post" style="display:inline">
+						<?php wp_nonce_field( 'saf_repeat_import', 'saf_repeat_nonce' ); ?>
+						<input type="hidden" name="saf_action" value="repeat_import">
+						<input type="hidden" name="history_session_id" value="<?php echo esc_attr( $sid ); ?>">
+						<button type="submit" class="button button-primary button-small"
+							title="<?php esc_attr_e( 'Znovu importovat – otevře mapování k úpravě před spuštěním', 'slovnik-a-feedy' ); ?>">
+							↻ <?php esc_html_e( 'Znovu', 'slovnik-a-feedy' ); ?>
+						</button>
+					</form>
+					<!-- 🗑 Smazat -->
+					<form method="post" style="display:inline;margin-left:4px">
 						<?php wp_nonce_field( 'saf_del_session', 'saf_del_ses_nonce' ); ?>
 						<input type="hidden" name="saf_action" value="delete_session">
 						<input type="hidden" name="session_id" value="<?php echo esc_attr( $sid ); ?>">
@@ -323,9 +343,10 @@ $step_labels = [
 			</div>
 
 			<!-- Vstup pro Google Sheets URL -->
-			<div id="saf-input-gsheet" class="saf-form-row" style="display:none">
+			<div id="saf-input-gsheet" class="saf-form-row" style="<?php echo $repeat_url ? '' : 'display:none'; ?>">
 				<label for="saf_gsheet_url"><strong><?php esc_html_e( 'Google Sheets URL:', 'slovnik-a-feedy' ); ?></strong></label>
 				<input type="url" id="saf_gsheet_url" name="gsheet_url" class="large-text"
+					value="<?php echo esc_attr( $repeat_url ); ?>"
 					placeholder="https://docs.google.com/spreadsheets/d/...">
 
 				<!-- Nápověda - jak získat URL -->
@@ -418,6 +439,14 @@ $step_labels = [
 		$macro_names  = $view_data['macro_names']   ?? [];
 		$auto_mapping = $view_data['auto_mapping']  ?? [];
 		$fields       = $view_data['fields']        ?? Mapper::FIELDS;
+		$notice_s1    = $view_data['notice']        ?? '';
+	?>
+	<?php if ( $notice_s1 ) : ?>
+	<div class="notice notice-info saf-inline-error" style="padding:10px 16px;margin-bottom:12px">
+		<p><?php echo esc_html( $notice_s1 ); ?></p>
+	</div>
+	<?php endif; ?>
+	<?php
 		$preview_rows = $view_data['preview_rows']  ?? [];
 	?>
 	<div class="saf-panel">
