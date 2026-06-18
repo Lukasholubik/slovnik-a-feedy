@@ -84,9 +84,53 @@ $trend_icon = static function ( int $now, int $prev ): string {
 		</span>
 	</div>
 
-	<!-- Diagnostika: admin nesledován -->
+	<!-- Diagnostika trackingu -->
+	<?php
+	$has_time_cols = \SlovnikAFeedy\Analytics\Tracker::has_time_columns();
+	$nonce_fix     = wp_create_nonce( 'saf_fix_table' );
+	?>
+
+	<?php if ( ! $has_time_cols ) : ?>
+	<div class="notice notice-error saf-inline-error" style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;margin-bottom:12px">
+		<span class="dashicons dashicons-database-remove" style="color:#e94560;font-size:22px;margin-top:2px"></span>
+		<div style="flex:1">
+			<strong><?php esc_html_e( 'Databázové sloupce pro průměrný čas chybí!', 'slovnik-a-feedy' ); ?></strong>
+			<p style="margin:4px 0 8px;color:#555">
+				<?php esc_html_e( 'Sloupce time_total a time_count nejsou v tabulce saf_stats. Proto se průměrný čas nezobrazuje. Klikni na "Opravit tabulku" pro automatické přidání.', 'slovnik-a-feedy' ); ?>
+			</p>
+			<button type="button" class="button button-primary" id="saf-fix-table-btn">
+				🔧 <?php esc_html_e( 'Opravit tabulku', 'slovnik-a-feedy' ); ?>
+			</button>
+			<span id="saf-fix-table-status" style="margin-left:10px;font-size:13px"></span>
+		</div>
+	</div>
+	<script>
+	document.getElementById('saf-fix-table-btn').addEventListener('click', function(){
+		var btn = this;
+		var status = document.getElementById('saf-fix-table-status');
+		btn.disabled = true;
+		status.textContent = 'Opravuji…';
+		fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
+			method: 'POST',
+			headers: {'Content-Type':'application/x-www-form-urlencoded'},
+			body: 'action=saf_fix_analytics_table&nonce=<?php echo esc_js( $nonce_fix ); ?>'
+		}).then(function(r){return r.json();}).then(function(d){
+			if(d.success){
+				status.textContent = '✓ ' + d.data;
+				status.style.color = '#2d7738';
+				setTimeout(function(){ location.reload(); }, 1500);
+			} else {
+				status.textContent = '✗ ' + (d.data || 'Chyba');
+				status.style.color = '#e94560';
+				btn.disabled = false;
+			}
+		});
+	});
+	</script>
+	<?php endif; ?>
+
 	<?php if ( ! $tracking_active ) : ?>
-	<div class="notice notice-warning inline saf-inline-error" style="display:flex;align-items:center;gap:10px;padding:10px 16px;margin-bottom:12px">
+	<div class="notice notice-warning" style="display:flex;align-items:center;gap:10px;padding:10px 16px;margin-bottom:12px">
 		<span class="dashicons dashicons-warning" style="color:#856404;font-size:20px"></span>
 		<div>
 			<strong><?php esc_html_e( 'Přihlášení administrátoři se nesledují.', 'slovnik-a-feedy' ); ?></strong>

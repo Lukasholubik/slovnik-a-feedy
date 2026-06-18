@@ -24,12 +24,42 @@ final class Tracker {
 	// Registrace hooků.
 
 	public static function register_hooks(): void {
-		add_action( 'template_redirect', [ static::class, 'maybe_track_view' ] );
-		add_action( 'rest_api_init',     [ static::class, 'register_rest_routes' ] );
+		add_action( 'template_redirect',  [ static::class, 'maybe_track_view' ] );
+		add_action( 'rest_api_init',      [ static::class, 'register_rest_routes' ] );
 		add_action( 'wp_enqueue_scripts', [ static::class, 'enqueue_tracker_script' ] );
 
-		// Zajisti existenci tabulky – i pokud plugin nebyl reaktivován.
+		// Zajisti existenci tabulky (incl. nové sloupce) při každém admin načtení.
 		add_action( 'admin_init', [ static::class, 'ensure_table' ] );
+
+		// AJAX: ruční přidání sloupců z analytics stránky.
+		add_action( 'wp_ajax_saf_fix_analytics_table', [ static::class, 'ajax_fix_table' ] );
+	}
+
+	/**
+	 * AJAX handler – přidá chybějící sloupce do saf_stats.
+	 * Volán z analytics stránky tlačítkem "Opravit tabulku".
+	 */
+	public static function ajax_fix_table(): void {
+		check_ajax_referer( 'saf_fix_table', 'nonce' );
+		if ( ! current_user_can( 'manage_glossary' ) ) {
+			wp_send_json_error( 'Nedostatečná oprávnění.' );
+		}
+
+		global $wpdb;
+		$table = $wpdb->prefix . self::TABLE;
+
+		// Přidej sloupce (IF NOT EXISTS je bezpečné).
+		$wpdb->query( "ALTER TABLE {$table} ADD COLUMN IF NOT EXISTS time_total bigint(20) UNSIGNED NOT NULL DEFAULT 0" ); // phpcs:ignore
+		$wpdb->query( "ALTER TABLE {$table} ADD COLUMN IF NOT EXISTS time_count int(10) UNSIGNED NOT NULL DEFAULT 0" );    // phpcs:ignore
+
+		// Ověř existenci.
+		$col = $wpdb->get_var( "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='{$table}' AND COLUMN_NAME='time_total'" ); // phpcs:ignore
+
+		if ( $col ) {
+			wp_send_json_success( 'Sloupce time_total a time_count existují. ✓' );
+		} else {
+			wp_send_json_error( 'Nepodařilo se přidat sloupce. Zkontroluj DB oprávnění.' );
+		}
 	}
 
 	// -------------------------------------------------------------------------

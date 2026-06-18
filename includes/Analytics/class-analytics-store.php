@@ -247,6 +247,27 @@ final class AnalyticsStore {
 	// Sparkline trend pro jednu stránku (posledních N dní).
 
 	/**
+	 * Vloží testovací záznamy včetně time_total/time_count (pro seed data).
+	 * Bezpečné – zkontroluje existenci sloupců.
+	 */
+	public static function seed_row( int $post_id, string $date, int $views, int $clicks, int $avg_time_s = 0 ): void {
+		global $wpdb;
+		$table      = $wpdb->prefix . \SlovnikAFeedy\Analytics\Tracker::TABLE;
+		$has_time   = \SlovnikAFeedy\Analytics\Tracker::has_time_columns();
+		$time_total = $has_time ? $avg_time_s * max( 1, $views ) : 0;
+		$time_count = $has_time ? max( 1, $views ) : 0;
+
+		$wpdb->query( // phpcs:ignore
+			$wpdb->prepare(
+				"INSERT INTO {$table} (post_id, stat_date, views, clicks, time_total, time_count)
+				 VALUES (%d, %s, %d, %d, %d, %d)
+				 ON DUPLICATE KEY UPDATE views=values(views), clicks=values(clicks), time_total=values(time_total), time_count=values(time_count)",
+				$post_id, $date, $views, $clicks, $time_total, $time_count
+			)
+		);
+	}
+
+	/**
 	 * @return list<int>  pole denních views (pro sparkline)
 	 */
 	public static function get_sparkline( int $post_id, int $days = 14 ): array {
