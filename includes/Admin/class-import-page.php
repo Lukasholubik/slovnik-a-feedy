@@ -481,11 +481,20 @@ final class ImportPage {
 	 */
 	public static function column_to_macro( string $col ): string {
 		$name = mb_strtolower( trim( $col ) );
-		// Diakritika → transliterace (jednoduchá).
-		$name = iconv( 'UTF-8', 'ASCII//TRANSLIT//IGNORE', $name ) ?: $name;
+
+		// Odstranění diakritiky – vlastní tabulka (iconv//TRANSLIT je na Windows nespolehlivý).
+		$diacritics = [
+			'á'=>'a','č'=>'c','ď'=>'d','é'=>'e','ě'=>'e','í'=>'i','ň'=>'n',
+			'ó'=>'o','ř'=>'r','š'=>'s','ť'=>'t','ú'=>'u','ů'=>'u','ý'=>'y','ž'=>'z',
+			'ä'=>'a','ö'=>'o','ü'=>'u','ß'=>'ss',
+		];
+		$name = strtr( $name, $diacritics );
+
+		// Pouze a-z, 0-9 → ostatní na podtržítko.
 		$name = (string) preg_replace( '/[^a-z0-9]+/', '_', $name );
 		$name = trim( $name, '_' );
-		return mb_substr( $name ?: 'col', 0, 40 );
+
+		return substr( $name ?: 'col', 0, 40 );
 	}
 
 	/**

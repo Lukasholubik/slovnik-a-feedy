@@ -59,27 +59,28 @@ final class TemplateManager {
 		}
 
 		// Načti makra uložená v post meta.
-		$post_id = absint( $_GET['post'] ?? get_the_ID() );
+		$post_id = absint( $_GET['post'] ?? 0 );
+		if ( ! $post_id ) {
+			return; // Neznámý post.
+		}
 
-		// 1. Zkus načíst makra ze session (předána v URL při redirect z importu).
-		$macros_js  = [];
+		// 1. Pokud přicházíme z redirect (saf_session v URL), ulož makra ze session.
 		$session_id = sanitize_key( $_GET['saf_session'] ?? '' );
 		if ( $session_id ) {
 			$session    = get_transient( 'saf_import_session_' . $session_id );
-			$raw_macros = $session['macro_names'] ?? [];
-			// Ulož i do post meta pro příště.
+			$raw_macros = is_array( $session ) ? ( $session['macro_names'] ?? [] ) : [];
 			if ( ! empty( $raw_macros ) ) {
-				update_post_meta( $post_id, '_saf_macro_names', $raw_macros );
+				// Ulož přes save_macro_names (option + post meta).
+				static::save_macro_names( $post_id, $raw_macros );
 			}
-		} else {
-			// 2. Fallback: post meta.
-			$raw_macros = get_post_meta( $post_id, '_saf_macro_names', true );
 		}
 
-		if ( is_array( $raw_macros ) ) {
-			foreach ( $raw_macros as $col => $macro ) {
-				$macros_js[] = [ 'macro' => $macro, 'col' => $col ];
-			}
+		// 2. Načti makra (z option nebo post meta – spolehlivé).
+		$raw_macros = static::get_macro_names( $post_id );
+		$macros_js  = [];
+
+		foreach ( $raw_macros as $col => $macro ) {
+			$macros_js[] = [ 'macro' => (string) $macro, 'col' => (string) $col ];
 		}
 
 		wp_enqueue_script(
@@ -104,12 +105,31 @@ final class TemplateManager {
 	}
 
 	/**
-	 * Uloží makra jako post meta na šabloně (aby byla dostupná v editoru).
+	 * Uloží makra pro šablonu (WP option – spolehlivější než post meta pro Gutenberg).
 	 *
 	 * @param array<string, string> $macro_names col → macro_name
 	 */
 	public static function save_macro_names( int $template_id, array $macro_names ): void {
+		// Option: perzistentní, nezávislé na session/transient.
+		update_option( 'saf_tpl_macros_' . $template_id, $macro_names, false );
+		// Post meta jako záloha.
 		update_post_meta( $template_id, '_saf_macro_names', $macro_names );
+	}
+
+	/**
+	 * Načte makra pro šablonu.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function get_macro_names( int $template_id ): array {
+		// Primárně z option (spolehlivější).
+		$macros = get_option( 'saf_tpl_macros_' . $template_id, null );
+		if ( is_array( $macros ) && ! empty( $macros ) ) {
+			return $macros;
+		}
+		// Fallback: post meta.
+		$meta = get_post_meta( $template_id, '_saf_macro_names', true );
+		return is_array( $meta ) ? $meta : [];
 	}
 
 	// -------------------------------------------------------------------------
