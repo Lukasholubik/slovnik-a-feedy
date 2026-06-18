@@ -41,8 +41,9 @@ spl_autoload_register( static function ( string $class ): void {
 	$parts      = explode( '\\', $relative );
 	$class_name = array_pop( $parts );
 
-	// CamelCase → kebab-case (např. AdminMenu → admin-menu).
-	$kebab    = strtolower( (string) preg_replace( '/(?<!^)[A-Z]/', '-$0', $class_name ) );
+	// CamelCase → kebab-case (např. AdminMenu → admin-menu, CrococblockCompat → crocoblock-compat).
+	// Použití lcfirst() + /[A-Z]/ místo (?<!^) lookbehind – spolehlivější na všech PHP verzích.
+	$kebab    = strtolower( (string) preg_replace( '/[A-Z]/', '-$0', lcfirst( $class_name ) ) );
 	$base_dir = SAF_DIR . 'includes/' . ( $parts ? implode( '/', $parts ) . '/' : '' );
 
 	foreach ( [ 'class-', 'interface-', 'trait-' ] as $type_prefix ) {
