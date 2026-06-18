@@ -1,130 +1,148 @@
 /**
- * SAF – Gutenberg sidebar panel s makry pro import šablony.
- * Přidá panel "Makra importu" do Document sidebaru.
- * Kliknutí na makro → zkopíruje {{makro}} do schránky + snackbar notifikace.
+ * SAF – Gutenberg sidebar panel s makry pro import šablonu.
+ * Přidá panel "Makra importu" do Document sidebaru (záložka "Import šablona").
  */
 (function () {
 	'use strict';
 
-	var el                       = wp.element.createElement;
-	var registerPlugin           = wp.plugins.registerPlugin;
-	var PluginDocumentSettingPanel = wp.editPost.PluginDocumentSettingPanel;
-	var PanelBody                = wp.components.PanelBody;
-	var Button                   = wp.components.Button;
-	var TextControl              = wp.components.TextControl;
-	var Dashicon                 = wp.components.Dashicon;
-	var useState                 = wp.element.useState;
-	var dispatch                 = wp.data.dispatch;
+	// Ověř že jsme v Gutenberg editoru.
+	if ( typeof wp === 'undefined' || ! wp.plugins ) {
+		return;
+	}
 
-	// Makra předaná z PHP přes wp_localize_script.
-	var macros = window.safGutenbergData ? window.safGutenbergData.macros : [];
-	var i18n   = window.safGutenbergData ? window.safGutenbergData.i18n   : {};
+	var el            = wp.element.createElement;
+	var useState      = wp.element.useState;
+	var registerPlugin = wp.plugins.registerPlugin;
+	var dispatch      = wp.data && wp.data.dispatch;
 
-	if ( ! macros || ! macros.length ) return;
+	// PluginDocumentSettingPanel – zkus obě lokace (WP verze se lišily).
+	var PluginDocumentSettingPanel =
+		( wp.editPost  && wp.editPost.PluginDocumentSettingPanel  ) ||
+		( wp.editor    && wp.editor.PluginDocumentSettingPanel    ) ||
+		null;
+
+	if ( ! PluginDocumentSettingPanel ) {
+		console.warn( '[SAF] PluginDocumentSettingPanel nenalezen.' );
+		return;
+	}
+
+	var data   = window.safGutenbergData || {};
+	var macros = data.macros || [];
+	var i18n   = data.i18n   || {};
+
+	// Komponenta panelu.
+	function MacroPanel() {
+		var searchState = useState( '' );
+		var search      = searchState[0];
+		var setSearch   = searchState[1];
+
+		var filtered = search
+			? macros.filter( function ( m ) {
+				return m.macro.toLowerCase().indexOf( search.toLowerCase() ) !== -1
+					|| m.col.toLowerCase().indexOf( search.toLowerCase() ) !== -1;
+			} )
+			: macros;
+
+		function copyMacro( macro ) {
+			var text = '{{' + macro + '}}';
+			( navigator.clipboard
+				? navigator.clipboard.writeText( text )
+				: Promise.reject()
+			).catch( function () {
+				// Fallback pro starší prohlížeče.
+				var ta = document.createElement( 'textarea' );
+				ta.value = text;
+				document.body.appendChild( ta );
+				ta.select();
+				document.execCommand( 'copy' );
+				document.body.removeChild( ta );
+				return Promise.resolve();
+			} ).then( function () {
+				if ( dispatch && dispatch( 'core/notices' ) ) {
+					dispatch( 'core/notices' ).createNotice(
+						'success',
+						( i18n.copied || 'Zkopírováno:' ) + ' ' + text,
+						{ type: 'snackbar', isDismissible: true }
+					);
+				}
+			} );
+		}
+
+		// Panel content.
+		return el( PluginDocumentSettingPanel, {
+			name:        'saf-macro-panel',
+			title:       i18n.panelTitle || 'Makra importu',
+			initialOpen: true,
+		},
+			// Intro text.
+			el( 'p', {
+				style: { fontSize: '11px', color: '#757575', marginBottom: '10px', lineHeight: '1.5' }
+			},
+				macros.length
+					? ( i18n.hint || 'Klikni na makro → zkopíruje se. Pak Ctrl+V do bloku.' )
+					: ( i18n.noMacros || 'Žádná makra. Vrať se na import stránku (krok 1 mapování).' )
+			),
+
+			// Vyhledávání (jen při víc než 6 makrech).
+			macros.length > 6 && el( 'input', {
+				type:        'text',
+				placeholder: i18n.search || 'Hledat...',
+				value:       search,
+				onChange:    function ( e ) { setSearch( e.target.value ); },
+				style: {
+					width:         '100%',
+					marginBottom:  '8px',
+					padding:       '4px 8px',
+					border:        '1px solid #ddd',
+					borderRadius:  '3px',
+					fontSize:      '12px',
+					boxSizing:     'border-box',
+				}
+			} ),
+
+			// Makro čipy.
+			el( 'div', { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
+				filtered.map( function ( item ) {
+					return el( 'button', {
+						key:     item.macro,
+						type:    'button',
+						onClick: function () { copyMacro( item.macro ); },
+						style: {
+							display:       'flex',
+							flexDirection: 'column',
+							alignItems:    'flex-start',
+							width:         '100%',
+							padding:       '6px 10px',
+							background:    '#f0f4ff',
+							border:        '1px solid #b3c6f0',
+							borderRadius:  '4px',
+							cursor:        'pointer',
+							textAlign:     'left',
+							transition:    'background .12s',
+						},
+						onMouseEnter: function ( e ) { e.currentTarget.style.background = '#dce8ff'; },
+						onMouseLeave: function ( e ) { e.currentTarget.style.background = '#f0f4ff'; },
+					},
+						el( 'span', {
+							style: { fontFamily: 'monospace', fontSize: '12px', fontWeight: '600', color: '#0073aa' }
+						}, '{{' + item.macro + '}}' ),
+						item.col !== item.macro && el( 'span', {
+							style: { fontSize: '10px', color: '#999', marginTop: '1px' }
+						}, item.col )
+					);
+				} )
+			),
+
+			// Tip H1.
+			el( 'p', {
+				style: { fontSize: '10px', color: '#aaa', marginTop: '12px', lineHeight: '1.5' }
+			}, i18n.tip || '💡 H1 = Titulek příspěvku (pole pluginu, ne blok obsahu). Začínej od H2.' )
+		);
+	}
 
 	registerPlugin( 'saf-macro-panel', {
-		icon: 'database',
-
-		render: function () {
-			var state = useState( '' );
-			var search   = state[0];
-			var setSearch = state[1];
-
-			var filtered = search
-				? macros.filter( function (m) {
-					return m.macro.indexOf( search.toLowerCase() ) !== -1
-						|| m.col.toLowerCase().indexOf( search.toLowerCase() ) !== -1;
-				  } )
-				: macros;
-
-			return el( PluginDocumentSettingPanel, {
-				name:  'saf-macro-panel',
-				title: i18n.panelTitle || 'Makra importu',
-				icon:  el( Dashicon, { icon: 'database' } ),
-				initialOpen: true,
-			},
-				// Nápověda.
-				el( 'p', {
-					style: {
-						fontSize:    '11px',
-						color:       '#757575',
-						marginBottom: '8px',
-						lineHeight:  '1.5',
-					}
-				}, i18n.hint || 'Klikni na makro → zkopíruje se, pak vlož Ctrl+V do bloku.' ),
-
-				// Vyhledávání (jen pokud je víc než 6 maker).
-				macros.length > 6 && el( TextControl, {
-					placeholder: i18n.search || 'Hledat makro...',
-					value:       search,
-					onChange:    setSearch,
-					style:       { marginBottom: '8px' },
-				} ),
-
-				// Makro čipy.
-				el( 'div', { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
-					filtered.length
-						? filtered.map( function (item) {
-							return el( Button, {
-								key:     item.macro,
-								variant: 'secondary',
-								style: {
-									fontFamily:  'monospace',
-									fontSize:    '12px',
-									padding:     '6px 10px',
-									textAlign:   'left',
-									width:       '100%',
-									display:     'flex',
-									flexDirection: 'column',
-									alignItems:  'flex-start',
-									height:      'auto',
-									lineHeight:  '1.4',
-								},
-								onClick: function () {
-									var text = '{{' + item.macro + '}}';
-									navigator.clipboard.writeText( text ).then( function () {
-										dispatch( 'core/notices' ).createNotice(
-											'success',
-											( i18n.copied || 'Zkopírováno:' ) + ' ' + text,
-											{ type: 'snackbar', isDismissible: true }
-										);
-									} ).catch( function () {
-										// Fallback pro starší prohlížeče.
-										var ta = document.createElement( 'textarea' );
-										ta.value = text;
-										document.body.appendChild( ta );
-										ta.select();
-										document.execCommand( 'copy' );
-										document.body.removeChild( ta );
-									} );
-								},
-							},
-								// Makro jméno.
-								el( 'span', { style: { color: '#0073aa', fontWeight: '600' } },
-									'{{' + item.macro + '}}'
-								),
-								// Původní název sloupce.
-								item.col !== item.macro && el( 'span', {
-									style: { color: '#999', fontSize: '10px', marginTop: '1px' }
-								}, item.col )
-							);
-						  } )
-						: el( 'p', { style: { color: '#999', fontSize: '12px' } },
-							i18n.noResults || 'Žádná makra nenalezena.'
-						  )
-				),
-
-				// Tip.
-				el( 'p', {
-					style: {
-						fontSize:   '10px',
-						color:      '#aaa',
-						marginTop:  '12px',
-						lineHeight: '1.4',
-					}
-				}, i18n.tip || '💡 H1 = Titulek příspěvku (pole pluginu, ne blok). V obsahu začínej od H2.' )
-			);
-		},
+		icon:   'database',
+		render: MacroPanel,
 	} );
 
 }() );

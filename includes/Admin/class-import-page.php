@@ -228,9 +228,11 @@ final class ImportPage {
 		// Zapamatuj si template_id pro tento session.
 		update_option( 'saf_last_template_id', $template_id );
 
-		// Redirect do editoru (return_url = zpět na import).
-		$return_url  = admin_url( 'admin.php?page=' . self::PAGE_SLUG . '&step=2&session=' . $session_id );
-		$edit_url    = \SlovnikAFeedy\TemplateManager::get_edit_url( $template_id );
+		// Přidej session_id do URL editoru – sidebar ho použije pro načtení maker.
+		$edit_url = add_query_arg(
+			'saf_session', $session_id,
+			\SlovnikAFeedy\TemplateManager::get_edit_url( $template_id )
+		);
 
 		wp_safe_redirect( $edit_url );
 		exit;

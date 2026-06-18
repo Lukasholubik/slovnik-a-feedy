@@ -59,9 +59,22 @@ final class TemplateManager {
 		}
 
 		// Načti makra uložená v post meta.
-		$post_id    = absint( $_GET['post'] ?? get_the_ID() );
-		$raw_macros = get_post_meta( $post_id, '_saf_macro_names', true );
+		$post_id = absint( $_GET['post'] ?? get_the_ID() );
+
+		// 1. Zkus načíst makra ze session (předána v URL při redirect z importu).
 		$macros_js  = [];
+		$session_id = sanitize_key( $_GET['saf_session'] ?? '' );
+		if ( $session_id ) {
+			$session    = get_transient( 'saf_import_session_' . $session_id );
+			$raw_macros = $session['macro_names'] ?? [];
+			// Ulož i do post meta pro příště.
+			if ( ! empty( $raw_macros ) ) {
+				update_post_meta( $post_id, '_saf_macro_names', $raw_macros );
+			}
+		} else {
+			// 2. Fallback: post meta.
+			$raw_macros = get_post_meta( $post_id, '_saf_macro_names', true );
+		}
 
 		if ( is_array( $raw_macros ) ) {
 			foreach ( $raw_macros as $col => $macro ) {
