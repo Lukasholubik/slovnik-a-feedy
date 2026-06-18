@@ -137,70 +137,10 @@ final class Plugin {
 		// Admin-post handler pro smazání importního profilu.
 		add_action( 'admin_post_saf_delete_profile', [ $this, 'handle_delete_profile' ] );
 
-		// Skrytí Elementor license modalu na stránkách SAF pluginu.
-		// Modal je position:fixed – DOM přesun ho nevizuálně nepřesune.
-		// Uživatel ho stále vidí na jiných WP stránkách (dashboard, příspěvky…).
-		add_action( 'admin_head', static function (): void {
-			$screen = get_current_screen();
-			if ( ! $screen || ! str_contains( $screen->id, 'slovnik-a-feedy' ) ) {
-				return;
-			}
-			?>
-			<script>
-			/* SAF: Skryj Elementor license dialog na stránkách pluginu */
-			(function () {
-				// Klíčové texty pro identifikaci modalu (nezávislé na CSS třídách).
-				var MATCH = ['License Mismatch', "license key doesn't match", 'Reactivate License'];
-
-				function containsLicenseText(el) {
-					if ( ! el || ! el.textContent ) return false;
-					for (var i = 0; i < MATCH.length; i++) {
-						if (el.textContent.indexOf(MATCH[i]) !== -1) return true;
-					}
-					return false;
-				}
-
-				function hideIfLicense(el) {
-					if ( ! el || el.nodeType !== 1 ) return;
-					// Přejdi na přímého potomka body.
-					var root = el;
-					while (root.parentNode && root.parentNode !== document.body) {
-						root = root.parentNode;
-					}
-					// Skryj jen pokud není #wpwrap (naše stránky jsou uvnitř #wpwrap).
-					if (root !== document.body && root.id !== 'wpwrap' && root.id !== 'wpadminbar') {
-						if (containsLicenseText(root)) {
-							root.style.display = 'none';
-							return;
-						}
-					}
-					// Fallback: hledej i uvnitř #wpbody-content (inline notice).
-					if (containsLicenseText(el) && !el.closest('.saf-wrap')) {
-						el.style.display = 'none';
-					}
-				}
-
-				function scanAll() {
-					// Přímí potomci body (Elementor React portál).
-					Array.from(document.body.children).forEach(hideIfLicense);
-					// Inline notices v #wpbody-content mimo naši wrap.
-					var wbc = document.getElementById('wpbody-content');
-					if (wbc) Array.from(wbc.children).forEach(hideIfLicense);
-				}
-
-				// Spusť v několika vlnách – Elementor renderuje async.
-				[0, 150, 400, 900, 1800].forEach(function (t) { setTimeout(scanAll, t); });
-
-				// Observer pro pozdní přidání.
-				new MutationObserver(function (mutations) {
-					mutations.forEach(function (m) {
-						m.addedNodes.forEach(hideIfLicense);
-					});
-				}).observe(document.body, { childList: true, subtree: false });
-			}());
-			</script>
-			<?php
-		} );
+		// Poznámka: WP admin_notices se přirozeně renderují PŘED .saf-wrap díky
+		// standardní WP architektuře. Elementor License dialog je JS/React modal
+		// s position:fixed – uživatel ho musí vyřešit přímo v Elementor nastavení
+		// (Reactivate License nebo deaktivace pro lokální prostředí).
 
 		// Admin UI.
 		if ( is_admin() ) {

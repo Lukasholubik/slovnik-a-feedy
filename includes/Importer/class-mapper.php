@@ -25,6 +25,7 @@ final class Mapper {
 		'excerpt'         => 'Stručný výpis / Excerpt (Výtah)',
 		'slug'            => 'URL slug (post_name)',
 		'status'          => 'Status (publish / draft)',
+		'thumbnail'       => 'Náhledový obrázek (URL nebo Attachment ID)',
 		'seo_title'       => 'SEO titulek (Rank Math)',
 		'seo_description' => 'SEO popis (Rank Math)',
 		'seo_keyword'     => 'Focus keyword (Rank Math)',

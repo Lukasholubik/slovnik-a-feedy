@@ -156,6 +156,11 @@ final class Importer {
 		// Uložení external_id.
 		update_post_meta( $post_id, self::META_EXTERNAL_ID, sanitize_text_field( $external_id ) );
 
+		// Náhledový obrázek (featured image).
+		if ( ! empty( $mapped['thumbnail'] ) ) {
+			$this->set_thumbnail( $post_id, trim( $mapped['thumbnail'] ) );
+		}
+
 		// Rank Math SEO meta – podmíněný zápis (ruční hodnota má přednost).
 		$this->write_seo_meta( $post_id, $mapped );
 
@@ -169,6 +174,67 @@ final class Importer {
 			Logger::info( sprintf( 'Vytvoren: "%s" (ID %d)', $post_data['post_title'], $post_id ), 'import' );
 			$this->created++;
 		}
+	}
+
+	// -------------------------------------------------------------------------
+	// Náhledový obrázek.
+
+	/**
+	 * Nastaví featured image (thumbnail) pro příspěvek.
+	 * Akceptuje:
+	 *   - číslo = attachment ID (přiřadí přímo)
+	 *   - URL   = stáhne přes media_sideload_image a přiřadí
+	 */
+	private function set_thumbnail( int $post_id, string $value ): void {
+		if ( $this->dry_run ) {
+			Logger::info( sprintf( 'DRY-RUN thumbnail: %s', $value ), 'import-dry' );
+			return;
+		}
+
+		if ( is_numeric( $value ) ) {
+			// Attachment ID.
+			set_post_thumbnail( $post_id, (int) $value );
+			return;
+		}
+
+		if ( ! filter_var( $value, FILTER_VALIDATE_URL ) ) {
+			Logger::warning( sprintf( 'Thumbnail: neplatná hodnota "%s" (očekáváno URL nebo ID).', $value ), 'import' );
+			return;
+		}
+
+		// Zkontroluj zda URL obrázek už není v media library (deduplication).
+		global $wpdb;
+		$existing = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='_saf_thumb_url' AND meta_value=%s LIMIT 1",
+				$value
+			)
+		);
+
+		if ( $existing ) {
+			set_post_thumbnail( $post_id, (int) $existing );
+			return;
+		}
+
+		// Stáhni a importuj obrázek.
+		require_once ABSPATH . 'wp-admin/includes/image.php';
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		require_once ABSPATH . 'wp-admin/includes/media.php';
+
+		$att_id = media_sideload_image( $value, $post_id, null, 'id' );
+
+		if ( is_wp_error( $att_id ) ) {
+			Logger::warning(
+				sprintf( 'Thumbnail: nepodařilo se stáhnout "%s": %s', $value, $att_id->get_error_message() ),
+				'import'
+			);
+			return;
+		}
+
+		set_post_thumbnail( $post_id, $att_id );
+		// Ulož URL do meta pro deduplication při re-importu.
+		update_post_meta( $att_id, '_saf_thumb_url', $value );
+		Logger::info( sprintf( 'Thumbnail importován: %s (att ID %d)', $value, $att_id ), 'import' );
 	}
 
 	// -------------------------------------------------------------------------
