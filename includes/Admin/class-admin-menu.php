@@ -13,14 +13,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Registruje admin menu a enqueue assets pro stránky pluginu.
+ * Zařazen do skupiny Grou.cz v admin menu (pozice 33).
  */
 final class AdminMenu {
 
-	public const MENU_SLUG = 'slovnik-a-feedy';
-	public const LOGS_SLUG = 'slovnik-a-feedy-logy';
-	public const CAP       = 'manage_glossary';
+	public const MENU_SLUG     = 'slovnik-a-feedy';
+	public const LOGS_SLUG     = 'slovnik-a-feedy-logy';
+	public const CAP           = 'manage_glossary';
+	public const MENU_POSITION = 33;
 
 	public function register(): void {
+		// Sdílená logika skupiny Grou.cz (bundlováno, chráněno function_exists).
+		require_once SAF_DIR . 'includes/grou-admin-group.php';
+
 		add_menu_page(
 			__( 'Slovník a Feedy', 'slovnik-a-feedy' ),
 			__( 'Slovník a Feedy', 'slovnik-a-feedy' ),
@@ -28,7 +33,7 @@ final class AdminMenu {
 			self::MENU_SLUG,
 			[ $this, 'render_dashboard' ],
 			'dashicons-rss',
-			26
+			self::MENU_POSITION
 		);
 
 		add_submenu_page(
@@ -48,6 +53,16 @@ final class AdminMenu {
 			self::LOGS_SLUG,
 			[ $this, 'render_logs' ]
 		);
+
+		// Zařadit do sekce Grou.cz (priorita 999 – po registraci menu).
+		add_action( 'admin_menu', static function (): void {
+			grou_register_admin_menu_group( self::MENU_POSITION );
+		}, 999 );
+
+		// CSS pro skupinové separátory Grou.cz.
+		add_action( 'admin_head', static function (): void {
+			grou_output_admin_group_css();
+		} );
 	}
 
 	/**

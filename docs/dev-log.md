@@ -4,6 +4,16 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-18 – fix: Zařazení do skupiny Grou.cz v admin menu
+
+**Co bylo uděláno:**
+- Zkopírován sdílený soubor `includes/grou-admin-group.php` (vzor z smartemailing-connect)
+- `class-admin-menu.php` – přidáno `require_once grou-admin-group.php`, volání `grou_register_admin_menu_group(33)` na `admin_menu` priorita 999, `grou_output_admin_group_css()` na `admin_head`
+- Pozice menu změněna z 26 → **33** (skupina: Emailing 30, SmartEmailing 31, SEO Booster 32, Slovník a Feedy 33)
+- `Workflow.txt` doplněn o povinný postup zařazení do Grou.cz při zakládání každého nového pluginu
+
+---
+
 ## 2026-06-18 – Fáze 1: Bootstrap + CPT + Taxonomie + Feedy + Sitemapa
 
 **Co bylo uděláno:**
