@@ -147,60 +147,76 @@ $log_warnings = Logger::count( Logger::WARNING );
 			</table>
 		</div>
 
-		<!-- Rychlé akce -->
+		<!-- Navigace – přehled menu -->
 		<div class="saf-panel">
 			<h2 class="saf-panel__title">
-				<span class="dashicons dashicons-admin-links"></span>
-				<?php esc_html_e( 'Rychlé akce', 'slovnik-a-feedy' ); ?>
+				<span class="dashicons dashicons-menu-alt3"></span>
+				<?php esc_html_e( 'Kde co najdeš', 'slovnik-a-feedy' ); ?>
 			</h2>
-			<ul class="saf-actions">
-				<li>
-					<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=glossary' ) ); ?>" class="button button-primary">
-						<span class="dashicons dashicons-plus"></span>
-						<?php esc_html_e( 'Přidat nový pojem', 'slovnik-a-feedy' ); ?>
-					</a>
-				</li>
-				<li>
-					<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=glossary' ) ); ?>" class="button">
-						<span class="dashicons dashicons-list-view"></span>
-						<?php esc_html_e( 'Všechny pojmy', 'slovnik-a-feedy' ); ?>
-					</a>
-				</li>
-				<li>
-					<a href="<?php echo esc_url( admin_url( 'edit-tags.php?taxonomy=glossary_letter&post_type=glossary' ) ); ?>" class="button">
-						<span class="dashicons dashicons-translation"></span>
-						<?php esc_html_e( 'Spravovat písmena (A–Z)', 'slovnik-a-feedy' ); ?>
-					</a>
-				</li>
-				<li>
-					<a href="<?php echo esc_url( admin_url( 'edit-tags.php?taxonomy=glossary_cat&post_type=glossary' ) ); ?>" class="button">
-						<span class="dashicons dashicons-category"></span>
-						<?php esc_html_e( 'Spravovat kategorie', 'slovnik-a-feedy' ); ?>
-					</a>
-				</li>
-				<li>
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-logy' ) ); ?>" class="button">
-						<span class="dashicons dashicons-list-view"></span>
-						<?php esc_html_e( 'Zobrazit logy', 'slovnik-a-feedy' ); ?>
-					</a>
-				</li>
-				<?php if ( $archive_url ) : ?>
-				<li>
-					<a href="<?php echo esc_url( $archive_url ); ?>" class="button" target="_blank" rel="noopener">
-						<span class="dashicons dashicons-external"></span>
-						<?php esc_html_e( 'Zobrazit archiv na webu', 'slovnik-a-feedy' ); ?>
-					</a>
-				</li>
-				<?php endif; ?>
-			</ul>
 
-			<!-- Nadcházející moduly -->
-			<h3 class="saf-panel__subtitle"><?php esc_html_e( 'Připravuje se', 'slovnik-a-feedy' ); ?></h3>
-			<ul class="saf-upcoming">
-				<li><span class="dashicons dashicons-upload"></span> <?php esc_html_e( 'Import z CSV / XML / Google Sheets (Fáze 2)', 'slovnik-a-feedy' ); ?></li>
-				<li><span class="dashicons dashicons-download"></span> <?php esc_html_e( 'Export a round-trip (Fáze 5)', 'slovnik-a-feedy' ); ?></li>
-				<li><span class="dashicons dashicons-chart-line"></span> <?php esc_html_e( 'Statistiky výkonu stránek (Fáze 5)', 'slovnik-a-feedy' ); ?></li>
-			</ul>
+			<div class="saf-nav-grid">
+
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-import' ) ); ?>" class="saf-nav-item">
+					<span class="saf-nav-item__icon dashicons dashicons-upload"></span>
+					<span class="saf-nav-item__title"><?php esc_html_e( 'Import', 'slovnik-a-feedy' ); ?></span>
+					<span class="saf-nav-item__desc"><?php esc_html_e( 'Nový import z CSV / XML / Google Sheets', 'slovnik-a-feedy' ); ?></span>
+				</a>
+
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-sablony' ) ); ?>" class="saf-nav-item saf-nav-item--highlight">
+					<span class="saf-nav-item__icon dashicons dashicons-editor-table"></span>
+					<span class="saf-nav-item__title"><?php esc_html_e( 'Šablony', 'slovnik-a-feedy' ); ?></span>
+					<span class="saf-nav-item__desc"><?php esc_html_e( 'Správa import šablon + uložené presety (opakovaný import)', 'slovnik-a-feedy' ); ?></span>
+				</a>
+
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-logy&context=import' ) ); ?>" class="saf-nav-item saf-nav-item--highlight">
+					<span class="saf-nav-item__icon dashicons dashicons-list-view"></span>
+					<span class="saf-nav-item__title"><?php esc_html_e( 'Historie importů', 'slovnik-a-feedy' ); ?></span>
+					<span class="saf-nav-item__desc"><?php esc_html_e( 'Logy – co bylo vytvořeno/aktualizováno/přeskočeno v každém importu', 'slovnik-a-feedy' ); ?></span>
+				</a>
+
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-analytics' ) ); ?>" class="saf-nav-item">
+					<span class="saf-nav-item__icon dashicons dashicons-chart-line"></span>
+					<span class="saf-nav-item__title"><?php esc_html_e( 'Analytics', 'slovnik-a-feedy' ); ?></span>
+					<span class="saf-nav-item__desc"><?php esc_html_e( 'Statistiky zobrazení a kliknutí na stránky', 'slovnik-a-feedy' ); ?></span>
+				</a>
+
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-streamy' ) ); ?>" class="saf-nav-item">
+					<span class="saf-nav-item__icon dashicons dashicons-book-alt"></span>
+					<span class="saf-nav-item__title"><?php esc_html_e( 'Streamy (CPT)', 'slovnik-a-feedy' ); ?></span>
+					<span class="saf-nav-item__desc"><?php esc_html_e( 'Správa Custom Post Types – vytvořit nový stream/blog', 'slovnik-a-feedy' ); ?></span>
+				</a>
+
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-nastaveni' ) ); ?>" class="saf-nav-item">
+					<span class="saf-nav-item__icon dashicons dashicons-admin-settings"></span>
+					<span class="saf-nav-item__title"><?php esc_html_e( 'Nastavení', 'slovnik-a-feedy' ); ?></span>
+					<span class="saf-nav-item__desc"><?php esc_html_e( 'Výchozí status, Google Sheets URL, log retention', 'slovnik-a-feedy' ); ?></span>
+				</a>
+
+			</div>
+
+			<div class="saf-builder-divider" style="margin:16px 0 12px"></div>
+
+			<!-- Rychlé akce -->
+			<div style="display:flex;flex-wrap:wrap;gap:8px">
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-import' ) ); ?>" class="button button-primary">
+					<span class="dashicons dashicons-upload" style="margin-top:3px"></span>
+					<?php esc_html_e( 'Spustit import', 'slovnik-a-feedy' ); ?>
+				</a>
+				<?php
+				// Odkaz na první aktivní stream.
+				$streams = \SlovnikAFeedy\StreamManager::get_all();
+				$first_stream = reset( $streams );
+				$first_cpt    = $first_stream['cpt'] ?? 'glossary';
+				?>
+				<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=' . $first_cpt ) ); ?>" class="button">
+					<?php esc_html_e( 'Zobrazit záznamy', 'slovnik-a-feedy' ); ?>
+				</a>
+				<?php if ( $archive_url ) : ?>
+				<a href="<?php echo esc_url( $archive_url ); ?>" class="button" target="_blank" rel="noopener">
+					<?php esc_html_e( 'Archiv na webu', 'slovnik-a-feedy' ); ?>
+				</a>
+				<?php endif; ?>
+			</div>
 		</div>
 
 	</div><!-- /.saf-columns -->

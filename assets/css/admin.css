@@ -455,6 +455,32 @@
 
 .saf-result-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
 
+/* ── Dashboard navigační grid ── */
+.saf-nav-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: 10px;
+	margin-bottom: 4px;
+}
+.saf-nav-item {
+	display: flex;
+	flex-direction: column;
+	padding: 12px 14px;
+	border: 1px solid #e0e0e0;
+	border-radius: 6px;
+	text-decoration: none;
+	color: inherit;
+	transition: all .15s;
+	background: #fff;
+}
+.saf-nav-item:hover { border-color: #1a1a2e; box-shadow: 0 2px 6px rgba(0,0,0,.08); color: inherit; }
+.saf-nav-item--highlight { border-left: 4px solid #e94560; }
+.saf-nav-item--highlight:hover { border-left-color: #e94560; }
+.saf-nav-item__icon { font-size: 22px; color: #1a1a2e; margin-bottom: 6px; }
+.saf-nav-item--highlight .saf-nav-item__icon { color: #e94560; }
+.saf-nav-item__title { font-weight: 700; font-size: 13px; color: #1a1a2e; margin-bottom: 3px; }
+.saf-nav-item__desc { font-size: 11px; color: #888; line-height: 1.4; }
+
 /* ── Logy ── */
 .saf-log-filter {
 	display: flex;
