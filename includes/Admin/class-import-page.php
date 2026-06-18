@@ -55,19 +55,21 @@ final class ImportPage {
 	// POST handling.
 
 	private function handle_post(): void {
-		$step = absint( $_POST['saf_step'] ?? 0 );
+		// Akce s vlastním nonce musí být zkontrolovány PŘED obecným import nonce.
+		$action = sanitize_key( $_POST['saf_action'] ?? '' );
+		if ( $action === 'create_template' ) {
+			$this->handle_create_template();
+			return;
+		}
+
+		// Obecný import nonce.
+		$step         = absint( $_POST['saf_step'] ?? 0 );
 		$nonce_action = 'saf_import_step_' . $step;
 
 		if ( ! isset( $_POST['saf_import_nonce'] )
 			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['saf_import_nonce'] ) ), $nonce_action )
 		) {
 			$this->view_data['error'] = __( 'Neplatný bezpečnostní token. Zkus to znovu.', 'slovnik-a-feedy' );
-			return;
-		}
-
-		// Speciální akce: vytvoření šablony.
-		if ( isset( $_POST['saf_action'] ) && $_POST['saf_action'] === 'create_template' ) {
-			$this->handle_create_template();
 			return;
 		}
 
