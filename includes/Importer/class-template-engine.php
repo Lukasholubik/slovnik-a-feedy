@@ -74,7 +74,44 @@ final class TemplateEngine {
 			$template
 		);
 
+		// 5. Odstraň prázdné Gutenberg bloky (sloupec v tabulce byl prázdný).
+		//    Např. <!-- wp:paragraph --><p></p><!-- /wp:paragraph --> → smazat.
+		$template = static::remove_empty_blocks( $template );
+
 		return $template;
+	}
+
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Odstraní prázdné Gutenberg bloky vzniklé po substituci prázdného makra.
+	 *
+	 * Odstraňuje vzory jako:
+	 *   <!-- wp:paragraph --><p></p><!-- /wp:paragraph -->
+	 *   <!-- wp:heading {"level":2} --><h2></h2><!-- /wp:heading -->
+	 *   atd.
+	 *
+	 * Také odstraní řádky které po substituci zůstanou jen s bílými znaky.
+	 */
+	private static function remove_empty_blocks( string $content ): string {
+		// Odstraň bloky s prázdným HTML elementem uvnitř.
+		$content = (string) preg_replace(
+			'#<!--\s*wp:[a-z\-]+[^>]*-->\s*<[a-z0-9]+[^>]*>\s*</[a-z0-9]+>\s*<!--\s*/wp:[a-z\-]+\s*-->\n?#i',
+			'',
+			$content
+		);
+
+		// Odstraň wp:separator bloky na opakovaných místech (více za sebou).
+		$content = (string) preg_replace(
+			'/(<!--\s*wp:separator[^>]*-->.*?<!--\s*\/wp:separator\s*-->)\s*\n?\s*\1/si',
+			'$1',
+			$content
+		);
+
+		// Smaž prázdné řádky vzniklé po odstranění bloků (max 2 za sebou).
+		$content = (string) preg_replace( '/\n{3,}/', "\n\n", $content );
+
+		return trim( $content );
 	}
 
 	/**

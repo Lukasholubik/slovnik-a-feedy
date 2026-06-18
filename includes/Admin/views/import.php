@@ -398,7 +398,10 @@ $step_labels = [
 				<thead>
 					<tr>
 						<th style="width:35%"><?php esc_html_e( 'Sloupec v souboru', 'slovnik-a-feedy' ); ?></th>
-						<th style="width:25%"><?php esc_html_e( 'Makro (použij v šabloně)', 'slovnik-a-feedy' ); ?></th>
+						<th style="width:25%">
+						<?php esc_html_e( 'Makro (použij v šabloně)', 'slovnik-a-feedy' ); ?>
+						<br><span style="font-weight:400;font-size:11px;color:#aaa"><?php esc_html_e( 'Více: kw, sug_url', 'slovnik-a-feedy' ); ?></span>
+					</th>
 						<th style="width:30%"><?php esc_html_e( 'Pole pluginu (volitelné)', 'slovnik-a-feedy' ); ?></th>
 						<th><?php esc_html_e( 'Náhled hodnoty', 'slovnik-a-feedy' ); ?></th>
 					</tr>

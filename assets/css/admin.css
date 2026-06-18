@@ -4,6 +4,14 @@
 /* ── Wrap ── */
 .saf-wrap { max-width: 1200px; }
 
+/* Notices přesunuté nad header – standardní WP styling, žádný override */
+.saf-wrap > .notice,
+.saf-wrap > .updated,
+.saf-wrap > .update-nag {
+	margin-bottom: 12px;
+	/* Zůstanou nad .saf-header – JS je přesune jako první potomky .saf-wrap */
+}
+
 /* ── Hlavička ── */
 .saf-header {
 	display: flex;

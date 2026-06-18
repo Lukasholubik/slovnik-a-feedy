@@ -21,8 +21,8 @@ final class Mapper {
 	 * Whitelist – jiné klíče nelze mapovat.
 	 */
 	public const FIELDS = [
-		'title'           => 'Název pojmu (titulek příspěvku)',
-		'excerpt'         => 'Výtah / perex',
+		'title'           => 'Název pojmu – Titulek (H1)',
+		'excerpt'         => 'Stručný výpis / Excerpt (Výtah)',
 		'slug'            => 'URL slug (post_name)',
 		'status'          => 'Status (publish / draft)',
 		'seo_title'       => 'SEO titulek (Rank Math)',

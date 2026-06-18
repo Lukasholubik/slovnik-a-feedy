@@ -188,15 +188,19 @@ final class ImportPage {
 			return;
 		}
 
-		// Ulož makro jména (col → macro_name, sanitizováno).
+		// Ulož makro jména (col → macro_name nebo pole aliasů, sanitizováno).
+		// Podpora: "kw, sug_url" → sloupec dostupný jako {{kw}} i {{sug_url}}.
 		$raw_macros  = (array) ( $_POST['macro_names'] ?? [] );
 		$macro_names = [];
 		foreach ( $raw_macros as $col => $macro ) {
 			$col   = sanitize_text_field( wp_unslash( $col ) );
-			$macro = sanitize_key( $macro ); // jen a-z, 0-9, _
-			if ( $col && $macro ) {
-				$macro_names[ $col ] = $macro;
+			$raw   = sanitize_text_field( wp_unslash( $macro ) );
+			if ( ! $col || ! $raw ) {
+				continue;
 			}
+			// Rozdělí čárkou oddělené aliasy.
+			$parts = array_values( array_filter( array_map( 'sanitize_key', explode( ',', $raw ) ) ) );
+			$macro_names[ $col ] = count( $parts ) === 1 ? $parts[0] : $parts;
 		}
 		// Fallback: auto-generace pokud prázdné.
 		if ( empty( $macro_names ) ) {
@@ -736,7 +740,15 @@ final class ImportPage {
 	public static function apply_macro_names( array $row, array $macro_names ): array {
 		$result = [];
 		foreach ( $macro_names as $col => $macro ) {
-			$result[ $macro ] = $row[ $col ] ?? '';
+			$val = $row[ $col ] ?? '';
+			if ( is_array( $macro ) ) {
+				// Aliasy – stejná hodnota pod více makro jmény.
+				foreach ( $macro as $m ) {
+					$result[ $m ] = $val;
+				}
+			} else {
+				$result[ $macro ] = $val;
+			}
 		}
 		return $result;
 	}
