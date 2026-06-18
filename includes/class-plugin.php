@@ -104,6 +104,9 @@ final class Plugin {
 			$admin_menu = new Admin\AdminMenu();
 			add_action( 'admin_menu', [ $admin_menu, 'register' ] );
 			add_action( 'admin_enqueue_scripts', [ $admin_menu, 'enqueue_assets' ] );
+
+			// Gutenberg sidebar s makry na edit stránce šablony.
+			add_action( 'admin_enqueue_scripts', [ 'SlovnikAFeedy\TemplateManager', 'enqueue_sidebar_script' ] );
 		}
 	}
 

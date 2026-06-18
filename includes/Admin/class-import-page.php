@@ -220,6 +220,11 @@ final class ImportPage {
 			return;
 		}
 
+		// Ulož makra jako post meta – budou viditelná v Gutenberg sidebaru.
+		if ( $session && ! empty( $session['macro_names'] ) ) {
+			\SlovnikAFeedy\TemplateManager::save_macro_names( $template_id, $session['macro_names'] );
+		}
+
 		// Zapamatuj si template_id pro tento session.
 		update_option( 'saf_last_template_id', $template_id );
 
@@ -240,13 +245,22 @@ final class ImportPage {
 			return;
 		}
 
-		// Načti šablonu z Gutenberg postu nebo z POST.
+		// Načti šablonu z Gutenberg postu.
 		$template_post_id = absint( $_POST['template_id'] ?? 0 );
 		if ( $template_post_id ) {
 			$template = \SlovnikAFeedy\TemplateManager::get_content( $template_post_id );
 			update_option( 'saf_last_template_id', $template_post_id );
+			// Aktualizuj makra v post meta (pro případ změny mapování).
+			if ( ! empty( $session['macro_names'] ) ) {
+				\SlovnikAFeedy\TemplateManager::save_macro_names( $template_post_id, $session['macro_names'] );
+			}
 		} else {
-			$template = wp_kses_post( wp_unslash( $_POST['template'] ?? '' ) );
+			$template = '';
+		}
+
+		if ( ! $template ) {
+			$this->view_data['error'] = __( 'Vyber šablonu a ujisti se, že v ní je obsah.', 'slovnik-a-feedy' );
+			return;
 		}
 		$default_status = in_array( $_POST['default_status'] ?? '', [ 'publish', 'draft' ], true )
 			? $_POST['default_status']

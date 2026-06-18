@@ -46,6 +46,60 @@ final class TemplateManager {
 	}
 
 	// -------------------------------------------------------------------------
+	// Gutenberg sidebar.
+
+	/**
+	 * Registruje sidebar skript na edit stránkách saf_template.
+	 * Volat z Plugin::register_hooks() přes admin_enqueue_scripts.
+	 */
+	public static function enqueue_sidebar_script(): void {
+		$screen = get_current_screen();
+		if ( ! $screen || $screen->post_type !== self::POST_TYPE || $screen->base !== 'post' ) {
+			return;
+		}
+
+		// Načti makra uložená v post meta.
+		$post_id    = absint( $_GET['post'] ?? get_the_ID() );
+		$raw_macros = get_post_meta( $post_id, '_saf_macro_names', true );
+		$macros_js  = [];
+
+		if ( is_array( $raw_macros ) ) {
+			foreach ( $raw_macros as $col => $macro ) {
+				$macros_js[] = [ 'macro' => $macro, 'col' => $col ];
+			}
+		}
+
+		wp_enqueue_script(
+			'saf-gutenberg-sidebar',
+			SAF_URL . 'assets/js/saf-gutenberg-sidebar.js',
+			[ 'wp-plugins', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-data', 'wp-notices', 'wp-i18n' ],
+			SAF_VERSION,
+			true
+		);
+
+		wp_localize_script( 'saf-gutenberg-sidebar', 'safGutenbergData', [
+			'macros' => $macros_js,
+			'i18n'   => [
+				'panelTitle' => __( 'Makra importu', 'slovnik-a-feedy' ),
+				'hint'       => __( 'Klikni na makro → zkopíruje se, pak vlož Ctrl+V do bloku.', 'slovnik-a-feedy' ),
+				'search'     => __( 'Hledat makro...', 'slovnik-a-feedy' ),
+				'copied'     => __( 'Zkopírováno:', 'slovnik-a-feedy' ),
+				'noResults'  => __( 'Žádná makra nenalezena.', 'slovnik-a-feedy' ),
+				'tip'        => __( '💡 H1 = Titulek příspěvku (pole pluginu). V obsahu začínej od H2.', 'slovnik-a-feedy' ),
+			],
+		] );
+	}
+
+	/**
+	 * Uloží makra jako post meta na šabloně (aby byla dostupná v editoru).
+	 *
+	 * @param array<string, string> $macro_names col → macro_name
+	 */
+	public static function save_macro_names( int $template_id, array $macro_names ): void {
+		update_post_meta( $template_id, '_saf_macro_names', $macro_names );
+	}
+
+	// -------------------------------------------------------------------------
 	// CRUD.
 
 	/**
