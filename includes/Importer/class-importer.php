@@ -119,7 +119,10 @@ final class Importer {
 		$post_data = [
 			'post_type'    => $this->stream['cpt'],
 			'post_title'   => sanitize_text_field( $mapped['title'] ),
-			'post_content' => wp_kses_post( $content ),
+			// Nepoužívat wp_kses_post() – ořezává Gutenberg block komentáře
+			// (<!-- wp:rank-math/faq-block ... --> apod.). wp_insert_post()
+			// filtruje sám dle capability uživatele (admini mají unfiltered_html).
+			'post_content' => $content,
 			'post_excerpt' => sanitize_textarea_field( $mapped['excerpt'] ),
 			'post_name'    => $slug,
 			'post_status'  => $status,
