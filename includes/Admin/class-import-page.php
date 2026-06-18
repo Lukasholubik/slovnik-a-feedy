@@ -69,6 +69,10 @@ final class ImportPage {
 			$this->handle_save_preset();
 			return;
 		}
+		if ( $action === 'back_step1' ) {
+			$this->handle_back_step1();
+			return;
+		}
 
 		// Obecný import nonce.
 		$step         = absint( $_POST['saf_step'] ?? 0 );
@@ -206,6 +210,37 @@ final class ImportPage {
 			'macro_preview' => $macro_preview,
 			'template'      => $session['template'] ?? '',
 			'settings'      => Settings::get_all(),
+		] );
+	}
+
+	/** Vrátí uživatele na krok 1 (mapování maker) se zachovanou session. */
+	private function handle_back_step1(): void {
+		if ( ! isset( $_POST['saf_back_nonce'] )
+			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['saf_back_nonce'] ) ), 'saf_back_step1' )
+		) {
+			$this->view_data['error'] = __( 'Neplatný token.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		$session_id = sanitize_key( $_POST['session_id'] ?? '' );
+		$session    = $this->load_session( $session_id );
+
+		if ( ! $session ) {
+			$this->view_data['error'] = __( 'Relace vypršela – nahraj soubor znovu.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		// Zobraz krok 1 znovu se zachovanými daty.
+		$this->view_data = array_merge( $this->view_data, [
+			'step'         => 1,
+			'session_id'   => $session_id,
+			'columns'      => $session['columns']      ?? [],
+			'macro_names'  => $session['macro_names']  ?? [],
+			'auto_mapping' => $session['mapping']      ?? [],
+			'fields'       => Mapper::FIELDS,
+			'stream'       => $session['stream']       ?? [],
+			'preview_rows' => $session['preview_rows'] ?? [],
+			'total_rows'   => $session['total_rows']   ?? 0,
 		] );
 	}
 

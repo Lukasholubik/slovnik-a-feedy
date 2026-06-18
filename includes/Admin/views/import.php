@@ -330,6 +330,22 @@ $step_labels = [
 		$macro_names   = $view_data['macro_names']   ?? [];
 		$macro_preview = $view_data['macro_preview'] ?? [];
 		$settings      = $view_data['settings']      ?? [];
+	?>
+	<!-- Tlačítko Zpět na mapování – viditelné hned pod progress barem -->
+	<div style="margin-bottom:12px">
+		<form method="post" style="display:inline">
+			<?php wp_nonce_field( 'saf_back_step1', 'saf_back_nonce' ); ?>
+			<input type="hidden" name="saf_action" value="back_step1">
+			<input type="hidden" name="session_id" value="<?php echo esc_attr( $session_id ); ?>">
+			<button type="submit" class="button">
+				← <?php esc_html_e( 'Zpět na mapování maker', 'slovnik-a-feedy' ); ?>
+			</button>
+		</form>
+		<span style="font-size:12px;color:#888;margin-left:10px">
+			<?php esc_html_e( 'Oprav chybné makro nebo přiřazení pole a vrať se sem.', 'slovnik-a-feedy' ); ?>
+		</span>
+	</div>
+	<?php
 
 		$templates     = \SlovnikAFeedy\TemplateManager::get_all();
 		$template_id   = (int) get_option( 'saf_last_template_id', 0 );
