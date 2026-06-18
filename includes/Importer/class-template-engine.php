@@ -99,6 +99,79 @@ final class TemplateEngine {
 TEMPLATE;
 	}
 
+	// -------------------------------------------------------------------------
+	// Auto-generace template z block typů.
+
+	/**
+	 * Dostupné typy bloků pro mapování.
+	 * Klíč = hodnota selectu, hodnota = zobrazovaný název.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function get_block_types(): array {
+		return [
+			''            => __( '— nezařadit do obsahu —', 'slovnik-a-feedy' ),
+			'paragraph'   => __( 'Odstavec (p)', 'slovnik-a-feedy' ),
+			'heading-2'   => __( 'Nadpis H2', 'slovnik-a-feedy' ),
+			'heading-3'   => __( 'Nadpis H3', 'slovnik-a-feedy' ),
+			'heading-4'   => __( 'Nadpis H4', 'slovnik-a-feedy' ),
+			'list'        => __( 'Odrážkový seznam (split čárkou)', 'slovnik-a-feedy' ),
+			'list-num'    => __( 'Číslovaný seznam (split čárkou)', 'slovnik-a-feedy' ),
+			'quote'       => __( 'Citace / blockquote', 'slovnik-a-feedy' ),
+			'separator'   => __( 'Oddělovač (HR)', 'slovnik-a-feedy' ),
+			'preformatted'=> __( 'Kód / předformátovaný text', 'slovnik-a-feedy' ),
+		];
+	}
+
+	/**
+	 * Vygeneruje Gutenberg blokovou šablonu automaticky z mapování block typů.
+	 *
+	 * @param array<string, string>  $block_mapping   source_col => block_type
+	 * @param list<string>           $column_order    pořadí sloupců (z hlavičky souboru)
+	 */
+	public static function generate_from_block_types(
+		array $block_mapping,
+		array $column_order
+	): string {
+		$parts = [];
+
+		// Projdi sloupce v pořadí jako v souboru.
+		foreach ( $column_order as $col ) {
+			$block_type = $block_mapping[ $col ] ?? '';
+			if ( ! $block_type || $block_type === '' ) {
+				continue;
+			}
+
+			$macro = '{{' . $col . '}}';
+			$part  = static::render_block_type( $col, $macro, $block_type );
+
+			if ( $part !== '' ) {
+				// Obal podmíněným blokem – prázdné hodnoty nevygenerují prázdný blok.
+				$parts[] = "{{#if {$col}}}\n{$part}\n{{/if}}";
+			}
+		}
+
+		return implode( "\n\n", $parts );
+	}
+
+	/**
+	 * Vrátí Gutenberg blokový markup pro jeden sloupec + typ bloku.
+	 */
+	private static function render_block_type( string $col, string $macro, string $block_type ): string {
+		return match ( $block_type ) {
+			'heading-2' => "<!-- wp:heading {\"level\":2} -->\n<h2 class=\"wp-block-heading\">{$macro}</h2>\n<!-- /wp:heading -->",
+			'heading-3' => "<!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">{$macro}</h3>\n<!-- /wp:heading -->",
+			'heading-4' => "<!-- wp:heading {\"level\":4} -->\n<h4 class=\"wp-block-heading\">{$macro}</h4>\n<!-- /wp:heading -->",
+			'paragraph' => "<!-- wp:paragraph -->\n<p>{$macro}</p>\n<!-- /wp:paragraph -->",
+			'quote'     => "<!-- wp:quote -->\n<blockquote class=\"wp-block-quote\"><p>{$macro}</p></blockquote>\n<!-- /wp:quote -->",
+			'list'      => "<!-- wp:list -->\n<ul class=\"wp-block-list\">{{#each {$col}}}<!-- wp:list-item --><li>{{item}}</li><!-- /wp:list-item -->{{/each}}</ul>\n<!-- /wp:list -->",
+			'list-num'  => "<!-- wp:list {\"ordered\":true} -->\n<ol class=\"wp-block-list\">{{#each {$col}}}<!-- wp:list-item --><li>{{item}}</li><!-- /wp:list-item -->{{/each}}</ol>\n<!-- /wp:list -->",
+			'separator' => "<!-- wp:separator -->\n<hr class=\"wp-block-separator\"/>\n<!-- /wp:separator -->",
+			'preformatted' => "<!-- wp:preformatted -->\n<pre class=\"wp-block-preformatted\">{$macro}</pre>\n<!-- /wp:preformatted -->",
+			default     => '',
+		};
+	}
+
 	/**
 	 * Vrátí ukázku syntaxe maker pro nápovědu v adminu.
 	 *

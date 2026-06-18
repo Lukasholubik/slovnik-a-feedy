@@ -177,6 +177,18 @@ $step_labels = [
 		});
 	}());
 	</script>
+	<!-- JS pro mapování (krok 1) dostupný globálně -->
+	<script>
+	function safUpdateColState(sel) {
+		var th = sel.closest('th');
+		if (!th) return;
+		var hasMapped  = th.querySelector('.saf-col-select')   && th.querySelector('.saf-col-select').value;
+		var hasBlock   = th.querySelector('.saf-block-select') && th.querySelector('.saf-block-select').value;
+		th.classList.toggle('saf-col--mapped', !!hasMapped);
+		th.classList.toggle('saf-col--has-block', !!hasBlock);
+		th.classList.toggle('saf-col--unmapped', !hasMapped && !hasBlock);
+	}
+	</script>
 
 	<?php
 	// ── KROK 1 – Mapování sloupců (spreadsheet UI) ────────────────────────────
@@ -184,6 +196,7 @@ $step_labels = [
 		$columns      = $view_data['columns']      ?? [];
 		$auto_mapping = $view_data['auto_mapping']  ?? [];
 		$fields       = $view_data['fields']        ?? Mapper::FIELDS;
+		$block_types  = TemplateEngine::get_block_types();
 	?>
 	<div class="saf-panel">
 		<form method="post">
@@ -197,7 +210,7 @@ $step_labels = [
 					<p class="description">
 						<?php
 						printf(
-							esc_html__( 'Detekováno %d sloupců, %d řádků dat. Pro každý sloupec vyber odpovídající pole pluginu.', 'slovnik-a-feedy' ),
+							esc_html__( 'Detekováno %d sloupců, %d řádků dat.', 'slovnik-a-feedy' ),
 							count( $columns ),
 							esc_html( $total_rows )
 						);
@@ -205,8 +218,24 @@ $step_labels = [
 					</p>
 				</div>
 				<div class="saf-mapping-legend">
-					<span class="saf-legend-item saf-legend-item--mapped"><?php esc_html_e( 'Namapováno', 'slovnik-a-feedy' ); ?></span>
-					<span class="saf-legend-item saf-legend-item--unmapped"><?php esc_html_e( 'Nenamapováno', 'slovnik-a-feedy' ); ?></span>
+					<span class="saf-legend-item saf-legend-item--mapped"><?php esc_html_e( 'Pole pluginu', 'slovnik-a-feedy' ); ?></span>
+					<span class="saf-legend-item saf-legend-item--block"><?php esc_html_e( 'Blok v obsahu', 'slovnik-a-feedy' ); ?></span>
+				</div>
+			</div>
+
+			<!-- Legenda řádků -->
+			<div class="saf-row-legend">
+				<div class="saf-row-legend__item">
+					<span class="saf-row-badge saf-row-badge--field">1</span>
+					<?php esc_html_e( 'Pole pluginu – kam patří hodnota (titulek, slug, SEO...)', 'slovnik-a-feedy' ); ?>
+				</div>
+				<div class="saf-row-legend__item">
+					<span class="saf-row-badge saf-row-badge--block">2</span>
+					<?php esc_html_e( 'Blok v obsahu – jako jaký Gutenberg blok se vykreslí (H2, odstavec...)', 'slovnik-a-feedy' ); ?>
+				</div>
+				<div class="saf-row-legend__item">
+					<span class="saf-row-badge saf-row-badge--data">→</span>
+					<?php esc_html_e( 'Náhled dat ze souboru', 'slovnik-a-feedy' ); ?>
 				</div>
 			</div>
 
@@ -214,16 +243,16 @@ $step_labels = [
 			<div class="saf-spreadsheet-wrap">
 				<table class="saf-spreadsheet" id="saf-mapping-table">
 					<thead>
-						<!-- Řádek 1: Selecty pro mapování -->
+						<!-- Řádek 1: Pole pluginu -->
 						<tr class="saf-mapping-selects">
+							<td class="saf-row-label"><span class="saf-row-badge saf-row-badge--field">1</span></td>
 							<?php foreach ( $columns as $col ) :
 								$mapped = $auto_mapping[ $col ] ?? '';
 							?>
-							<th class="saf-col-header <?php echo $mapped ? 'saf-col--mapped' : 'saf-col--unmapped'; ?>"
-								data-col="<?php echo esc_attr( $col ); ?>">
+							<th class="saf-col-header <?php echo $mapped ? 'saf-col--mapped' : 'saf-col--unmapped'; ?>">
 								<select name="mapping[<?php echo esc_attr( $col ); ?>]"
 									class="saf-col-select"
-									onchange="this.closest('th').className='saf-col-header '+(this.value?'saf-col--mapped':'saf-col--unmapped')">
+									onchange="safUpdateColState(this)">
 									<option value=""><?php esc_html_e( '— nepřiřazovat —', 'slovnik-a-feedy' ); ?></option>
 									<?php foreach ( $fields as $slug => $label ) : ?>
 									<option value="<?php echo esc_attr( $slug ); ?>"
@@ -235,8 +264,26 @@ $step_labels = [
 							</th>
 							<?php endforeach; ?>
 						</tr>
-						<!-- Řádek 2: Název sloupce ze zdroje -->
+						<!-- Řádek 2: Block type (obsah) -->
+						<tr class="saf-block-selects">
+							<td class="saf-row-label"><span class="saf-row-badge saf-row-badge--block">2</span></td>
+							<?php foreach ( $columns as $col ) : ?>
+							<th class="saf-block-header">
+								<select name="block_type[<?php echo esc_attr( $col ); ?>]"
+									class="saf-block-select"
+									onchange="safUpdateColState(this)">
+									<?php foreach ( $block_types as $bt_key => $bt_label ) : ?>
+									<option value="<?php echo esc_attr( $bt_key ); ?>">
+										<?php echo esc_html( $bt_label ); ?>
+									</option>
+									<?php endforeach; ?>
+								</select>
+							</th>
+							<?php endforeach; ?>
+						</tr>
+						<!-- Řádek 3: Název sloupce ze zdroje -->
 						<tr class="saf-col-names">
+							<td class="saf-row-label"><span class="saf-row-badge saf-row-badge--data">→</span></td>
 							<?php foreach ( $columns as $col ) : ?>
 							<th class="saf-col-name-cell">
 								<span title="<?php echo esc_attr( $col ); ?>">
@@ -294,10 +341,11 @@ $step_labels = [
 	<?php
 	// ── KROK 2 – Šablona + volby ──────────────────────────────────────────────
 	elseif ( $step === 2 ) :
-		$template    = $view_data['template']    ?? TemplateEngine::default_template();
-		$preview_row = $view_data['preview_row'] ?? null;
-		$syntax_help = $view_data['syntax_help'] ?? [];
-		$settings    = $view_data['settings']    ?? [];
+		$template      = $view_data['template']       ?? TemplateEngine::default_template();
+		$preview_row   = $view_data['preview_row']    ?? null;
+		$syntax_help   = $view_data['syntax_help']    ?? [];
+		$settings      = $view_data['settings']       ?? [];
+		$auto_generated = $view_data['auto_generated'] ?? false;
 	?>
 	<div class="saf-columns">
 		<div class="saf-panel">
@@ -307,9 +355,19 @@ $step_labels = [
 				<input type="hidden" name="session_id" value="<?php echo esc_attr( $session_id ); ?>">
 
 				<h2 class="saf-panel__title"><?php esc_html_e( 'Šablona obsahu (Gutenberg bloky)', 'slovnik-a-feedy' ); ?></h2>
+
+				<?php if ( $auto_generated ) : ?>
+				<div class="notice notice-success inline" style="margin-bottom:12px">
+					<p>
+						✅ <strong><?php esc_html_e( 'Šablona byla automaticky vygenerována z block typů.', 'slovnik-a-feedy' ); ?></strong>
+						<?php esc_html_e( 'Můžeš ji upravit nebo rovnou spustit import.', 'slovnik-a-feedy' ); ?>
+					</p>
+				</div>
+				<?php else : ?>
 				<p class="saf-panel__desc">
 					<?php esc_html_e( 'Šablona definuje obsah každého pojmu. Piš blokové komentáře Gutenbergu + makra {{sloupec}} pro data.', 'slovnik-a-feedy' ); ?>
 				</p>
+				<?php endif; ?>
 
 				<textarea name="template" id="saf-template" rows="14" class="large-text code"><?php echo esc_textarea( $template ); ?></textarea>
 

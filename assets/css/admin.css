@@ -173,8 +173,51 @@
 	vertical-align: top;
 }
 
-.saf-col-header.saf-col--mapped   { border-top: 3px solid #28a745; }
-.saf-col-header.saf-col--unmapped { border-top: 3px solid #e0e0e0; }
+.saf-col-header.saf-col--mapped    { border-top: 3px solid #28a745; }
+.saf-col-header.saf-col--has-block { border-top: 3px solid #0073aa; }
+.saf-col-header.saf-col--unmapped  { border-top: 3px solid #e0e0e0; }
+
+/* Řádek s block selecty */
+.saf-block-selects th.saf-block-header {
+	padding: 4px 4px 6px;
+	background: #f0f4ff;
+	border-bottom: 2px solid #0073aa;
+	border-right: 1px solid #e8e8e8;
+	position: sticky;
+	top: 44px;
+	z-index: 9;
+}
+.saf-block-select {
+	width: 100%;
+	font-size: 11px;
+	padding: 2px 4px;
+	border: 1px solid #b3c6f0;
+	border-radius: 3px;
+	background: #fff;
+	color: #0073aa;
+}
+.saf-block-select:not([value=""]) { border-color: #0073aa; background: #f0f4ff; }
+
+/* Popisky řádků */
+.saf-row-label { position:sticky; left:0; background:#fff; z-index:12; padding:4px 6px; border-right:2px solid #ddd; }
+.saf-row-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	font-size: 11px;
+	font-weight: 700;
+}
+.saf-row-badge--field { background:#28a745; color:#fff; }
+.saf-row-badge--block { background:#0073aa; color:#fff; }
+.saf-row-badge--data  { background:#888; color:#fff; }
+
+.saf-row-legend { display:flex; gap:16px; margin-bottom:8px; font-size:12px; color:#555; }
+.saf-row-legend__item { display:flex; align-items:center; gap:6px; }
+
+.saf-legend-item--block { background:#d0e8f8; color:#0073aa; border:1px solid #b3c6f0; }
 
 .saf-col-select {
 	width: 100%;

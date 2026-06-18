@@ -148,7 +148,7 @@ final class ImportPage {
 			return;
 		}
 
-		// Sanitizuj mapování – povoleny jen klíče z Mapper::FIELDS.
+		// Sanitizuj mapování polí – povoleny jen klíče z Mapper::FIELDS.
 		$raw_mapping = (array) ( $_POST['mapping'] ?? [] );
 		$mapping     = [];
 		foreach ( $raw_mapping as $col => $field ) {
@@ -159,6 +159,30 @@ final class ImportPage {
 			}
 		}
 
+		// Sanitizuj mapování block typů – povoleny jen klíče z TemplateEngine::get_block_types().
+		$raw_block_types  = (array) ( $_POST['block_type'] ?? [] );
+		$allowed_blocks   = array_keys( TemplateEngine::get_block_types() );
+		$block_mapping    = [];
+		foreach ( $raw_block_types as $col => $bt ) {
+			$col = sanitize_text_field( wp_unslash( $col ) );
+			$bt  = sanitize_key( $bt );
+			if ( $bt && in_array( $bt, $allowed_blocks, true ) ) {
+				$block_mapping[ $col ] = $bt;
+			}
+		}
+
+		// Auto-generace šablony z block typů (pokud jsou nastaveny).
+		$auto_template = '';
+		if ( ! empty( $block_mapping ) ) {
+			$auto_template = TemplateEngine::generate_from_block_types(
+				$block_mapping,
+				$session['columns'] ?? []
+			);
+		}
+
+		// Fallback na existující šablonu pokud block typy nebyly nastaveny.
+		$template = $auto_template ?: $session['template'];
+
 		// Ulož profil pokud zaškrtl.
 		if ( ! empty( $_POST['save_profile'] ) && ! empty( $_POST['profile_name'] ) ) {
 			Settings::save_profile(
@@ -166,31 +190,36 @@ final class ImportPage {
 				[
 					'name'     => sanitize_text_field( wp_unslash( $_POST['profile_name'] ) ),
 					'mapping'  => $mapping,
-					'template' => $session['template'],
+					'template' => $template,
 				]
 			);
 		}
 
-		$session['mapping'] = $mapping;
+		$session['mapping']       = $mapping;
+		$session['block_mapping'] = $block_mapping;
 		$this->save_session( $session_id, $session );
 
-		// Náhled prvního řádku pro live preview šablony.
-		$source         = $this->make_source( $session['source_type'], $session['file_path'] );
-		$preview_row    = null;
-		foreach ( $source->get_rows() as $row ) {
-			$preview_row = $row;
-			break;
+		// Náhled prvního řádku (z session nebo ze souboru).
+		$preview_row = $session['preview_rows'][0] ?? null;
+		if ( ! $preview_row ) {
+			$source = $this->make_source( $session['source_type'], $session['file_path'] );
+			foreach ( $source->get_rows() as $row ) {
+				$preview_row = $row;
+				break;
+			}
 		}
 
 		$this->view_data = array_merge( $this->view_data, [
-			'step'        => 2,
-			'session_id'  => $session_id,
-			'columns'     => $session['columns'],
-			'mapping'     => $mapping,
-			'template'    => $session['template'],
-			'preview_row' => $preview_row,
-			'syntax_help' => TemplateEngine::get_syntax_help(),
-			'settings'    => Settings::get_all(),
+			'step'          => 2,
+			'session_id'    => $session_id,
+			'columns'       => $session['columns'],
+			'mapping'       => $mapping,
+			'block_mapping' => $block_mapping,
+			'template'      => $template,
+			'preview_row'   => $preview_row,
+			'syntax_help'   => TemplateEngine::get_syntax_help(),
+			'settings'      => Settings::get_all(),
+			'auto_generated' => ! empty( $auto_template ),
 		] );
 	}
 
