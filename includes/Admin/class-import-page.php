@@ -112,7 +112,18 @@ final class ImportPage {
 			$stream = reset( $all ) ?: [];
 		}
 
-		// Načti profil pokud byl vybrán.
+		// Načti preset pokud byl vybrán – doplní URL pokud je pole prázdné.
+		$preset_id = sanitize_key( $_POST['preset_id'] ?? '' );
+		$preset    = $preset_id ? ( Settings::get_import_presets()[ $preset_id ] ?? null ) : null;
+
+		if ( $preset && empty( $_POST['gsheet_url'] ) && ! empty( $preset['source_url'] ) ) {
+			// Uživatel nevložil novou URL → použij z presetu.
+			$_POST['gsheet_url']   = $preset['source_url'];
+			$_POST['source_type']  = 'gsheet';
+			$source_type           = 'gsheet';
+		}
+
+		// Načti (starší) profil pokud byl vybrán.
 		$profile_id = sanitize_key( $_POST['load_profile'] ?? '' );
 		$profile    = $profile_id ? ( Settings::get_profiles()[ $profile_id ] ?? null ) : null;
 
@@ -149,6 +160,7 @@ final class ImportPage {
 				'stream'       => $stream,
 				'preview_rows' => $preview_rows,
 				'total_rows'   => $total_rows,
+				'source_url'   => esc_url_raw( wp_unslash( $_POST['gsheet_url'] ?? '' ) ),
 			] );
 
 			// Registruj relaci v seznamu aktivních importů.

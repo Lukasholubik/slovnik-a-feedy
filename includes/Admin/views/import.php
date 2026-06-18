@@ -224,7 +224,9 @@ $step_labels = [
 					<select name="preset_id" id="saf-preset-select" class="regular-text">
 						<option value=""><?php esc_html_e( '— nový import —', 'slovnik-a-feedy' ); ?></option>
 						<?php foreach ( $presets as $pid => $preset ) : ?>
-						<option value="<?php echo esc_attr( $pid ); ?>">
+						<option value="<?php echo esc_attr( $pid ); ?>"
+							data-url="<?php echo esc_attr( $preset['source_url'] ?? '' ); ?>"
+							data-stream="<?php echo esc_attr( $preset['stream_id'] ?? '' ); ?>">
 							<?php echo esc_html( $preset['name'] ); ?>
 							<?php if ( ! empty( $preset['stream_name'] ) ) : ?>
 							(<?php echo esc_html( $preset['stream_name'] ); ?>)
@@ -241,11 +243,40 @@ $step_labels = [
 			</div>
 			<script>
 			(function(){
-				var sel = document.getElementById('saf-preset-select');
-				var del = document.getElementById('saf-delete-preset');
+				var sel       = document.getElementById('saf-preset-select');
+				var del       = document.getElementById('saf-delete-preset');
+				var urlFld    = document.getElementById('saf_gsheet_url');
+				var streamSel = document.querySelector('select[name="stream_id"]');
+
+				function applyPreset(opt) {
+					if(!opt || !opt.value) return;
+
+					// Předvyplní URL ze data-url atributu.
+					var url = opt.getAttribute('data-url') || '';
+					if(url && urlFld) {
+						urlFld.value = url;
+						// Přepni na GSheet tab a zkryj file input.
+						var gTab = document.querySelector('.saf-source-tab[data-tab="gsheet"]');
+						if(gTab) gTab.click();
+					}
+
+					// Přepni stream.
+					var streamId = opt.getAttribute('data-stream') || '';
+					if(streamId && streamSel) {
+						for(var i = 0; i < streamSel.options.length; i++) {
+							if(streamSel.options[i].value === streamId) {
+								streamSel.selectedIndex = i; break;
+							}
+						}
+					}
+
+					del.style.display = '';
+				}
+
 				if(sel && del) {
 					sel.addEventListener('change', function(){
-						del.style.display = sel.value ? '' : 'none';
+						if(!sel.value) { del.style.display = 'none'; return; }
+						applyPreset(sel.options[sel.selectedIndex]);
 					});
 					del.addEventListener('click', function(){
 						if(!confirm('<?php esc_attr_e( 'Smazat preset?', 'slovnik-a-feedy' ); ?>')) return;
