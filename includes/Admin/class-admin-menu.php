@@ -129,15 +129,35 @@ final class AdminMenu {
 
 		wp_enqueue_style( 'saf-admin', SAF_URL . 'assets/css/admin.css', [], SAF_VERSION );
 
-		// Template builder JS jen na import stránce.
+		// Template builder + preview JS jen na import stránce.
 		if ( str_contains( $hook, ImportPage::PAGE_SLUG ) ) {
-			wp_enqueue_script(
-				'saf-template-builder',
-				SAF_URL . 'assets/js/saf-template-builder.js',
-				[],
-				SAF_VERSION,
-				true
-			);
+			wp_enqueue_script( 'saf-template-builder', SAF_URL . 'assets/js/saf-template-builder.js', [], SAF_VERSION, true );
+			wp_enqueue_script( 'saf-import-preview', SAF_URL . 'assets/js/saf-import-preview.js', [], SAF_VERSION, true );
+
+			// Témata CSS pro iframe náhled (wp_styles bez bloated dependencí).
+			global $wp_styles;
+			$theme_styles = [];
+			if ( $wp_styles ) {
+				foreach ( $wp_styles->queue as $handle ) {
+					$src = $wp_styles->registered[ $handle ]->src ?? '';
+					// Zahrn jen frontend styly (style.css, theme.css…) – ne admin styly.
+					if ( $src && str_contains( $src, get_template_directory_uri() ) ) {
+						$theme_styles[] = $src;
+					}
+				}
+			}
+			// Fallback: načti hlavní theme stylesheet.
+			if ( empty( $theme_styles ) ) {
+				$theme_styles = [ get_stylesheet_uri() ];
+			}
+
+			wp_localize_script( 'saf-import-preview', 'safImportPreview', [
+				'restUrl'     => esc_url_raw( rest_url( 'saf/v1/preview-template' ) ),
+				'nonce'       => wp_create_nonce( 'wp_rest' ),
+				'themeStyles' => $theme_styles,
+				'macroData'   => [], // Doplní se přes wp_add_inline_script z view.
+				'templateId'  => (int) get_option( 'saf_last_template_id', 0 ),
+			] );
 		}
 
 		wp_enqueue_script( 'saf-admin-js', SAF_URL . 'assets/js/saf-admin.js', [], SAF_VERSION, true );

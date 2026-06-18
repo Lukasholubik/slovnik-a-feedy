@@ -93,6 +93,42 @@ final class Plugin {
 		// Analytics – tracking zobrazení a kliknutí.
 		Analytics\Tracker::register_hooks();
 
+		// REST endpoint pro live náhled šablony.
+		add_action( 'rest_api_init', static function (): void {
+			register_rest_route( 'saf/v1', '/preview-template', [
+				'methods'             => 'POST',
+				'callback'            => static function ( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+					if ( ! current_user_can( 'manage_glossary' ) ) {
+						return new \WP_Error( 'forbidden', 'Nedostatečná oprávnění.', [ 'status' => 403 ] );
+					}
+
+					$template_id = absint( $request->get_param( 'template_id' ) );
+					$macro_data  = (array) $request->get_param( 'macro_data' );
+
+					$template = \SlovnikAFeedy\TemplateManager::get_content( $template_id );
+					if ( ! $template ) {
+						return new \WP_Error( 'no_template', 'Šablona nenalezena.', [ 'status' => 404 ] );
+					}
+
+					$engine   = new Importer\TemplateEngine();
+					$rendered = $engine->render( $template, $macro_data );
+
+					// Renderuj Gutenberg bloky do HTML.
+					$html = do_blocks( $rendered );
+
+					return new \WP_REST_Response( [
+						'html'     => $html,
+						'raw'      => $rendered,
+					], 200 );
+				},
+				'permission_callback' => static fn() => current_user_can( 'manage_glossary' ),
+				'args'                => [
+					'template_id' => [ 'required' => true, 'type' => 'integer', 'sanitize_callback' => 'absint' ],
+					'macro_data'  => [ 'required' => false, 'type' => 'object', 'default' => [] ],
+				],
+			] );
+		} );
+
 		// Batch import Cron hook.
 		Importer\BatchRunner::register_hooks();
 
