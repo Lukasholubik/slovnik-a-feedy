@@ -116,9 +116,11 @@ final class Plugin {
 					// Renderuj Gutenberg bloky do HTML.
 					$html = do_blocks( $rendered );
 
+					$tpl_post = get_post( $template_id );
 					return new \WP_REST_Response( [
-						'html'     => $html,
-						'raw'      => $rendered,
+						'html'           => $html,
+						'raw'            => $rendered,
+						'template_title' => $tpl_post ? $tpl_post->post_title : '',
 					], 200 );
 				},
 				'permission_callback' => static fn() => current_user_can( 'manage_glossary' ),

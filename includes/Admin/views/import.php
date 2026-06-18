@@ -502,47 +502,6 @@ $step_labels = [
 				</span>
 			</div>
 		</form>
-	<!-- Panel živého náhledu -->
-	<?php
-	// Předej macro_preview data do JS pro iframe náhled.
-	if ( $macro_preview ) :
-		wp_add_inline_script(
-			'saf-import-preview',
-			'if(typeof safImportPreview!=="undefined"){safImportPreview.macroData=' . wp_json_encode( $macro_preview ) . ';}',
-			'after'
-		);
-	endif;
-	?>
-	<div class="saf-panel" style="margin-top:16px">
-		<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-			<h2 class="saf-panel__title" style="margin:0">
-				<span class="dashicons dashicons-visibility"></span>
-				<?php esc_html_e( 'Náhled obsahu (1. řádek dat)', 'slovnik-a-feedy' ); ?>
-			</h2>
-			<div style="display:flex;align-items:center;gap:10px">
-				<span id="saf-preview-status" style="font-size:12px;color:#888"></span>
-				<button type="button" id="saf-preview-btn" class="button button-primary">
-					<span class="dashicons dashicons-visibility" style="margin-top:3px"></span>
-					<?php esc_html_e( 'Načíst náhled', 'slovnik-a-feedy' ); ?>
-				</button>
-			</div>
-		</div>
-		<p class="description" style="margin-bottom:12px">
-			<?php esc_html_e( 'Ukazuje jak bude vypadat příspěvek po importu – makra jsou nahrazena skutečnými daty z 1. řádku tabulky. Náhled používá CSS tvého tématu.', 'slovnik-a-feedy' ); ?>
-		</p>
-		<iframe
-			id="saf-preview-iframe"
-			style="display:none;width:100%;border:1px solid #ddd;border-radius:4px;min-height:200px;background:#fff"
-			sandbox="allow-same-origin"
-			title="<?php esc_attr_e( 'Náhled obsahu', 'slovnik-a-feedy' ); ?>">
-		</iframe>
-		<?php if ( ! $macro_preview ) : ?>
-		<p style="color:#999;font-size:12px;font-style:italic">
-			<?php esc_html_e( 'Náhled není k dispozici – data z 1. řádku nebyla načtena. Začni import znovu od kroku 1.', 'slovnik-a-feedy' ); ?>
-		</p>
-		<?php endif; ?>
-	</div>
-
 	</div>
 
 	<script>
@@ -806,6 +765,48 @@ $step_labels = [
 		}
 	}());
 	</script>
+
+	<!-- ── Panel živého náhledu – patří do kroku 2 ── -->
+	<?php if ( $step === 2 ) :
+		// Předej macro_preview data do JS.
+		if ( $macro_preview ) {
+			wp_add_inline_script(
+				'saf-import-preview',
+				'if(typeof safImportPreview!=="undefined"){safImportPreview.macroData=' . wp_json_encode( $macro_preview ) . ';}',
+				'after'
+			);
+		}
+	?>
+	<div class="saf-panel" style="margin-top:16px">
+		<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+			<h2 class="saf-panel__title" style="margin:0">
+				<span class="dashicons dashicons-visibility"></span>
+				<?php esc_html_e( 'Náhled obsahu (1. řádek dat)', 'slovnik-a-feedy' ); ?>
+			</h2>
+			<div style="display:flex;align-items:center;gap:10px">
+				<span id="saf-preview-status" style="font-size:12px;color:#888"></span>
+				<button type="button" id="saf-preview-btn" class="button button-primary">
+					<span class="dashicons dashicons-visibility" style="margin-top:3px"></span>
+					<?php esc_html_e( 'Načíst náhled', 'slovnik-a-feedy' ); ?>
+				</button>
+			</div>
+		</div>
+		<p class="description" style="margin-bottom:12px">
+			<?php esc_html_e( 'Vyber šablonu vlevo → klikni Načíst náhled. Makra se nahradí daty z 1. řádku tabulky. Výsledek vypadá jako skutečná publikovaná stránka (s CSS tvého tématu).', 'slovnik-a-feedy' ); ?>
+		</p>
+		<iframe
+			id="saf-preview-iframe"
+			style="display:none;width:100%;border:1px solid #ddd;border-radius:4px;min-height:300px;background:#fff"
+			sandbox="allow-same-origin"
+			title="<?php esc_attr_e( 'Náhled obsahu', 'slovnik-a-feedy' ); ?>">
+		</iframe>
+		<?php if ( ! $macro_preview ) : ?>
+		<p style="color:#999;font-size:12px;font-style:italic">
+			<?php esc_html_e( 'Náhled není k dispozici – data z 1. řádku nebyla načtena. Vrať se na krok 1 a pokračuj.', 'slovnik-a-feedy' ); ?>
+		</p>
+		<?php endif; ?>
+	</div>
+	<?php endif; ?>
 
 	<?php
 	// ── KROK 3 – Výsledky ─────────────────────────────────────────────────────
