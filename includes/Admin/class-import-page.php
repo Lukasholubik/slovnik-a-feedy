@@ -97,17 +97,29 @@ final class ImportPage {
 				throw new \RuntimeException( __( 'Soubor neobsahuje žádné sloupce. Zkontroluj formát.', 'slovnik-a-feedy' ) );
 			}
 
+			// Načti prvních 5 řádků pro spreadsheet preview.
+			$preview_rows = [];
+			$total_rows   = 0;
+			foreach ( $source->get_rows() as $row ) {
+				if ( count( $preview_rows ) < 5 ) {
+					$preview_rows[] = $row;
+				}
+				$total_rows++;
+			}
+
 			$auto_mapping = $profile
 				? $profile['mapping']
 				: Mapper::auto_map( $columns );
 
 			$session_id = $this->new_session( [
-				'file_path'   => $file_path,
-				'source_type' => $source_type,
-				'columns'     => $columns,
-				'mapping'     => $auto_mapping,
-				'template'    => $profile ? $profile['template'] : TemplateEngine::default_template(),
-				'stream'      => $stream,
+				'file_path'    => $file_path,
+				'source_type'  => $source_type,
+				'columns'      => $columns,
+				'mapping'      => $auto_mapping,
+				'template'     => $profile ? $profile['template'] : TemplateEngine::default_template(),
+				'stream'       => $stream,
+				'preview_rows' => $preview_rows,
+				'total_rows'   => $total_rows,
 			] );
 
 			$this->view_data = array_merge( $this->view_data, [
@@ -118,6 +130,8 @@ final class ImportPage {
 				'fields'       => Mapper::FIELDS,
 				'profile'      => $profile,
 				'stream'       => $stream,
+				'preview_rows' => $preview_rows,
+				'total_rows'   => $total_rows,
 			] );
 
 		} catch ( \Throwable $e ) {
@@ -308,12 +322,13 @@ final class ImportPage {
 
 	/**
 	 * Stáhne URL jako temp soubor (Google Sheets / jiný CSV feed).
+	 * Automaticky konvertuje běžnou editační URL na CSV export URL.
 	 *
 	 * @throws \RuntimeException
 	 */
 	private function download_url( string $url, string $upload_dir ): string {
-		// Whitelist hosts (SSRF ochrana) – pouze google a vlastní web.
-		$host = wp_parse_url( $url, PHP_URL_HOST );
+		// Whitelist hosts (SSRF ochrana).
+		$host          = wp_parse_url( $url, PHP_URL_HOST );
 		$allowed_hosts = [ 'docs.google.com', 'spreadsheets.google.com', 'drive.google.com' ];
 		if ( ! in_array( $host, $allowed_hosts, true ) ) {
 			throw new \RuntimeException(
@@ -321,17 +336,32 @@ final class ImportPage {
 			);
 		}
 
+		// Auto-konverze Google Sheets edit/view URL → CSV export URL.
+		$url = $this->normalize_gsheet_url( $url );
+
 		$response = wp_remote_get( $url, [ 'timeout' => 30, 'sslverify' => true ] );
 		if ( is_wp_error( $response ) ) {
 			throw new \RuntimeException(
 				__( 'Nepodařilo se stáhnout Google Sheet: ', 'slovnik-a-feedy' ) . $response->get_error_message()
 			);
 		}
-		if ( wp_remote_retrieve_response_code( $response ) !== 200 ) {
-			throw new \RuntimeException( __( 'Google Sheet vrátil chybu. Je Sheet publikován jako CSV?', 'slovnik-a-feedy' ) );
+
+		$code = wp_remote_retrieve_response_code( $response );
+		if ( $code !== 200 ) {
+			throw new \RuntimeException(
+				sprintf( __( 'Google Sheet vrátil HTTP %d. Je Sheet publikován jako CSV?', 'slovnik-a-feedy' ), $code )
+			);
 		}
 
-		$body    = wp_remote_retrieve_body( $response );
+		$body = wp_remote_retrieve_body( $response );
+
+		// Detekce HTML odpovědi – stažena stránka místo CSV dat.
+		if ( str_starts_with( ltrim( $body ), '<!DOCTYPE' ) || str_starts_with( ltrim( $body ), '<html' ) ) {
+			throw new \RuntimeException(
+				__( 'Google Sheet vrátil HTML místo CSV. Potřebuješ správnou URL CSV exportu. Viz nápověda níže.', 'slovnik-a-feedy' )
+			);
+		}
+
 		$dest    = $upload_dir . '/' . uniqid( 'saf-gsheet-', true ) . '.csv';
 		$written = file_put_contents( $dest, $body ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		if ( $written === false ) {
@@ -339,6 +369,39 @@ final class ImportPage {
 		}
 
 		return $dest;
+	}
+
+	/**
+	 * Konvertuje libovolnou Google Sheets URL na CSV export URL.
+	 *
+	 * Vzory:
+	 *   /spreadsheets/d/{ID}/edit         → /spreadsheets/d/{ID}/export?format=csv&gid={gid}
+	 *   /spreadsheets/d/{ID}/pub?...      → přidá output=csv pokud chybí
+	 *   /spreadsheets/d/{ID}/pub?output=csv → beze změny
+	 */
+	private function normalize_gsheet_url( string $url ): string {
+		// Extrahuj spreadsheet ID.
+		if ( ! preg_match( '#/spreadsheets/d/([a-zA-Z0-9_-]+)#', $url, $m ) ) {
+			return $url; // Neznámý formát – vrátit beze změny.
+		}
+
+		$sheet_id = $m[1];
+
+		// Extrahuj gid (záložka) z query stringu.
+		parse_str( (string) wp_parse_url( $url, PHP_URL_QUERY ), $params );
+		$gid = $params['gid'] ?? '0';
+
+		// Pokud URL již obsahuje output=csv nebo export?format=csv, vrátit beze změny.
+		if ( str_contains( $url, 'output=csv' ) || str_contains( $url, 'format=csv' ) ) {
+			return $url;
+		}
+
+		// Sestav správnou CSV export URL.
+		return sprintf(
+			'https://docs.google.com/spreadsheets/d/%s/pub?gid=%s&single=true&output=csv',
+			$sheet_id,
+			$gid
+		);
 	}
 
 	private function make_source( string $source_type, string $file_path ): CsvSource|XmlSource {

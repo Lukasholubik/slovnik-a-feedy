@@ -119,6 +119,103 @@
 .saf-analytics-table .saf-num-col { text-align:right; }
 .saf-url-slug { font-size:11px; color:#999; font-family:monospace; }
 
+/* ── Import – source tabs ── */
+.saf-source-tabs { display:flex; gap:0; border:1px solid #ddd; border-radius:4px; overflow:hidden; width:fit-content; }
+.saf-source-tab { display:flex; align-items:center; gap:6px; padding:8px 16px; cursor:pointer; font-size:13px; color:#555; background:#fff; border-right:1px solid #ddd; user-select:none; }
+.saf-source-tab:last-child { border-right:none; }
+.saf-source-tab input { display:none; }
+.saf-source-tab--active { background:#1a1a2e; color:#fff; }
+.saf-source-tab--active .dashicons { color:#e94560; }
+
+.saf-gsheet-help { margin-top:10px; border:1px solid #ddd; border-radius:4px; padding:8px 12px; background:#f9f9f9; }
+.saf-gsheet-help summary { cursor:pointer; font-size:13px; font-weight:600; color:#0073aa; }
+.saf-gsheet-steps { padding:8px 0 0 4px; font-size:13px; }
+.saf-gsheet-steps ol { margin:6px 0 6px 20px; }
+.saf-gsheet-steps li { margin-bottom:4px; }
+
+.saf-form-row { margin-bottom:14px; }
+.saf-form-row label { display:block; margin-bottom:6px; }
+.saf-form-row--inline { display:flex; align-items:center; gap:8px; }
+
+/* ── Spreadsheet mapování ── */
+.saf-mapping-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:12px; }
+.saf-mapping-legend { display:flex; gap:10px; align-items:center; padding-top:4px; }
+.saf-legend-item { font-size:11px; padding:2px 8px; border-radius:3px; }
+.saf-legend-item--mapped   { background:#d4edda; color:#155724; border:1px solid #c3e6cb; }
+.saf-legend-item--unmapped { background:#f5f5f5; color:#666; border:1px solid #ddd; }
+
+.saf-spreadsheet-wrap {
+	overflow-x: auto;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	max-height: 420px;
+	overflow-y: auto;
+}
+
+.saf-spreadsheet {
+	border-collapse: collapse;
+	font-size: 13px;
+	min-width: 100%;
+	white-space: nowrap;
+}
+
+/* Řádek se selecty */
+.saf-mapping-selects th.saf-col-header {
+	padding: 6px 4px 4px;
+	background: #fff;
+	border-bottom: 2px solid #1a1a2e;
+	border-right: 1px solid #e8e8e8;
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	min-width: 140px;
+	max-width: 200px;
+	vertical-align: top;
+}
+
+.saf-col-header.saf-col--mapped   { border-top: 3px solid #28a745; }
+.saf-col-header.saf-col--unmapped { border-top: 3px solid #e0e0e0; }
+
+.saf-col-select {
+	width: 100%;
+	font-size: 12px;
+	padding: 3px 4px;
+	border: 1px solid #ccc;
+	border-radius: 3px;
+	background: #fff;
+}
+.saf-col--mapped   .saf-col-select { border-color: #28a745; background: #f8fff9; }
+.saf-col--unmapped .saf-col-select { border-color: #ccc; }
+
+/* Řádek s názvy sloupců */
+.saf-col-names th.saf-col-name-cell {
+	padding: 4px 8px;
+	background: #f0f0f0;
+	border-bottom: 1px solid #ddd;
+	border-right: 1px solid #e8e8e8;
+	font-size: 11px;
+	color: #555;
+	font-weight: 600;
+	position: sticky;
+	top: 56px; /* výška saf-mapping-selects */
+	z-index: 9;
+}
+
+/* Datové řádky */
+.saf-data-cell {
+	padding: 5px 8px;
+	border-bottom: 1px solid #f0f0f0;
+	border-right: 1px solid #e8e8e8;
+	color: #444;
+	max-width: 200px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: default;
+}
+.saf-row-even .saf-data-cell { background: #fafafa; }
+.saf-row-odd  .saf-data-cell { background: #fff; }
+.saf-data-cell:hover { background: #fffbf0 !important; }
+
 /* ── Import wizard ── */
 .saf-wizard-steps { display:flex; gap:0; margin-bottom:20px; border:1px solid #e0e0e0; border-radius:6px; overflow:hidden; background:#fff; }
 .saf-wizard-step { flex:1; padding:12px 16px; display:flex; align-items:center; gap:8px; font-size:13px; color:#888; border-right:1px solid #e0e0e0; }
