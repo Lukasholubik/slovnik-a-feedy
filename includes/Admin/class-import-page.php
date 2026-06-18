@@ -371,13 +371,24 @@ final class ImportPage {
 			);
 		}
 
+		// Přelož klíče field mappingu: originální název sloupce → makro jméno.
+		// (Řádky jsou překlíčovány na makra, ale mapping měl původní názvy sloupců.)
+		// Př.: {'Titulek' => 'title'} → {'h1_titulek' => 'title'}
+		$macro_names        = $session['macro_names'] ?? [];
+		$original_mapping   = $session['mapping']     ?? [];
+		$translated_mapping = [];
+		foreach ( $original_mapping as $orig_col => $field ) {
+			$macro_key = $macro_names[ $orig_col ] ?? $orig_col;
+			$translated_mapping[ $macro_key ] = $field;
+		}
+
 		$config = [
-			'mapping'        => $session['mapping'],
-			'macro_names'    => $session['macro_names'] ?? [],
-			'template'       => $template,
-			'stream'         => $session['stream'] ?? [],
-			'default_status' => $default_status,
-			'dry_run'        => $is_dry_run,
+			'mapping'         => $translated_mapping,
+			'macro_names'     => $macro_names,
+			'template'        => $template,
+			'stream'          => $session['stream'] ?? [],
+			'default_status'  => $default_status,
+			'dry_run'         => $is_dry_run,
 			'force_overwrite' => $force_overwrite,
 		];
 

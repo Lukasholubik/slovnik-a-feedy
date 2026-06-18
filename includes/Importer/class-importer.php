@@ -88,12 +88,14 @@ final class Importer {
 	private function process_row( array $raw_row ): void {
 		$mapped = $this->mapper->map_row( $raw_row );
 
-		// External ID = klíč pro detekci duplicit.
+		// External ID = klíč pro detekci duplicit při re-importu.
+		// Priorita: namapované external_id → slug → title → auto (jako nový příspěvek).
 		$external_id = trim( $mapped['external_id'] ?: $mapped['slug'] ?: $mapped['title'] );
 		if ( $external_id === '' ) {
-			Logger::warning( 'Řádek přeskočen – chybí external_id, slug i title.', 'import', $raw_row );
-			$this->skipped++;
-			return;
+			// Žádné identifikační pole není namapováno → auto-generuj (řazení dle pořadí v tabulce).
+			// Při re-importu vznikne nový příspěvek (nedochází k deduplikaci bez ID).
+			$external_id = 'saf_auto_' . substr( md5( serialize( $raw_row ) ), 0, 12 );
+			Logger::info( 'Auto-generováno external_id: ' . $external_id . ' (namapuj sloupec ID pro deduplikaci při re-importu).', 'import' );
 		}
 
 		// Render Gutenberg obsahu ze šablony.
