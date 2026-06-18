@@ -83,6 +83,8 @@ final class Plugin {
 		add_filter( 'rank_math/json_ld', [ $schema, 'add_defined_term' ], 10, 2 );
 
 		// Crocoblock / JetPlugins kompatibilita.
+		// Přímý require – spolehlivější než autoloader pro tuto třídu.
+		require_once SAF_DIR . 'includes/Support/class-crocoblock-compat.php';
 		Support\CrococblockCompat::register_hooks();
 
 		// Batch import Cron hook.
