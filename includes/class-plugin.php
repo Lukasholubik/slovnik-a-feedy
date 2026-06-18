@@ -82,6 +82,9 @@ final class Plugin {
 		$schema = new SEO\Schema();
 		add_filter( 'rank_math/json_ld', [ $schema, 'add_defined_term' ], 10, 2 );
 
+		// Crocoblock / JetPlugins kompatibilita.
+		Support\CrococblockCompat::register_hooks();
+
 		// Batch import Cron hook.
 		Importer\BatchRunner::register_hooks();
 
