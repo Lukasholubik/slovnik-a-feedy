@@ -97,7 +97,7 @@ final class ImportPage {
 				throw new \RuntimeException( __( 'Soubor neobsahuje žádné sloupce. Zkontroluj formát.', 'slovnik-a-feedy' ) );
 			}
 
-			// Načti prvních 5 řádků pro spreadsheet preview.
+			// Načti prvních 5 řádků pro preview.
 			$preview_rows = [];
 			$total_rows   = 0;
 			foreach ( $source->get_rows() as $row ) {
@@ -107,16 +107,17 @@ final class ImportPage {
 				$total_rows++;
 			}
 
-			$auto_mapping = $profile
-				? $profile['mapping']
-				: Mapper::auto_map( $columns );
+			// Auto-generuj makro jména z názvů sloupců (col → snake_case).
+			$auto_macros  = self::generate_macro_names( $columns );
+			$auto_mapping = $profile ? $profile['mapping'] : Mapper::auto_map( $columns );
 
 			$session_id = $this->new_session( [
 				'file_path'    => $file_path,
 				'source_type'  => $source_type,
 				'columns'      => $columns,
+				'macro_names'  => $auto_macros,
 				'mapping'      => $auto_mapping,
-				'template'     => $profile ? $profile['template'] : TemplateEngine::default_template(),
+				'template'     => $profile ? $profile['template'] : '',
 				'stream'       => $stream,
 				'preview_rows' => $preview_rows,
 				'total_rows'   => $total_rows,
@@ -126,9 +127,9 @@ final class ImportPage {
 				'step'         => 1,
 				'session_id'   => $session_id,
 				'columns'      => $columns,
+				'macro_names'  => $auto_macros,
 				'auto_mapping' => $auto_mapping,
 				'fields'       => Mapper::FIELDS,
-				'profile'      => $profile,
 				'stream'       => $stream,
 				'preview_rows' => $preview_rows,
 				'total_rows'   => $total_rows,
@@ -148,7 +149,22 @@ final class ImportPage {
 			return;
 		}
 
-		// Sanitizuj mapování polí – povoleny jen klíče z Mapper::FIELDS.
+		// Ulož makro jména (col → macro_name, sanitizováno).
+		$raw_macros  = (array) ( $_POST['macro_names'] ?? [] );
+		$macro_names = [];
+		foreach ( $raw_macros as $col => $macro ) {
+			$col   = sanitize_text_field( wp_unslash( $col ) );
+			$macro = sanitize_key( $macro ); // jen a-z, 0-9, _
+			if ( $col && $macro ) {
+				$macro_names[ $col ] = $macro;
+			}
+		}
+		// Fallback: auto-generace pokud prázdné.
+		if ( empty( $macro_names ) ) {
+			$macro_names = self::generate_macro_names( $session['columns'] ?? [] );
+		}
+
+		// Sanitizuj mapování polí pluginu (title, slug, seo...).
 		$raw_mapping = (array) ( $_POST['mapping'] ?? [] );
 		$mapping     = [];
 		foreach ( $raw_mapping as $col => $field ) {
@@ -159,67 +175,21 @@ final class ImportPage {
 			}
 		}
 
-		// Sanitizuj mapování block typů – povoleny jen klíče z TemplateEngine::get_block_types().
-		$raw_block_types  = (array) ( $_POST['block_type'] ?? [] );
-		$allowed_blocks   = array_keys( TemplateEngine::get_block_types() );
-		$block_mapping    = [];
-		foreach ( $raw_block_types as $col => $bt ) {
-			$col = sanitize_text_field( wp_unslash( $col ) );
-			$bt  = sanitize_key( $bt );
-			if ( $bt && in_array( $bt, $allowed_blocks, true ) ) {
-				$block_mapping[ $col ] = $bt;
-			}
-		}
-
-		// Auto-generace šablony z block typů (pokud jsou nastaveny).
-		$auto_template = '';
-		if ( ! empty( $block_mapping ) ) {
-			$auto_template = TemplateEngine::generate_from_block_types(
-				$block_mapping,
-				$session['columns'] ?? []
-			);
-		}
-
-		// Fallback na existující šablonu pokud block typy nebyly nastaveny.
-		$template = $auto_template ?: $session['template'];
-
-		// Ulož profil pokud zaškrtl.
-		if ( ! empty( $_POST['save_profile'] ) && ! empty( $_POST['profile_name'] ) ) {
-			Settings::save_profile(
-				sanitize_key( uniqid( 'profile_', true ) ),
-				[
-					'name'     => sanitize_text_field( wp_unslash( $_POST['profile_name'] ) ),
-					'mapping'  => $mapping,
-					'template' => $template,
-				]
-			);
-		}
-
-		$session['mapping']       = $mapping;
-		$session['block_mapping'] = $block_mapping;
+		$session['macro_names'] = $macro_names;
+		$session['mapping']     = $mapping;
 		$this->save_session( $session_id, $session );
 
-		// Náhled prvního řádku (z session nebo ze souboru).
-		$preview_row = $session['preview_rows'][0] ?? null;
-		if ( ! $preview_row ) {
-			$source = $this->make_source( $session['source_type'], $session['file_path'] );
-			foreach ( $source->get_rows() as $row ) {
-				$preview_row = $row;
-				break;
-			}
-		}
+		// Připrav preview row s makro klíči (pro JS builder).
+		$raw_preview   = $session['preview_rows'][0] ?? [];
+		$macro_preview = self::apply_macro_names( $raw_preview, $macro_names );
 
 		$this->view_data = array_merge( $this->view_data, [
 			'step'          => 2,
 			'session_id'    => $session_id,
-			'columns'       => $session['columns'],
-			'mapping'       => $mapping,
-			'block_mapping' => $block_mapping,
-			'template'      => $template,
-			'preview_row'   => $preview_row,
-			'syntax_help'   => TemplateEngine::get_syntax_help(),
+			'macro_names'   => $macro_names,
+			'macro_preview' => $macro_preview,
+			'template'      => $session['template'] ?? '',
 			'settings'      => Settings::get_all(),
-			'auto_generated' => ! empty( $auto_template ),
 		] );
 	}
 
@@ -253,6 +223,7 @@ final class ImportPage {
 
 		$config = [
 			'mapping'        => $session['mapping'],
+			'macro_names'    => $session['macro_names'] ?? [],
 			'template'       => $template,
 			'stream'         => $session['stream'] ?? [],
 			'default_status' => $default_status,
@@ -260,9 +231,16 @@ final class ImportPage {
 			'force_overwrite' => $force_overwrite,
 		];
 
-		// Načti všechny řádky.
-		$source = $this->make_source( $session['source_type'], $session['file_path'] );
-		$rows   = iterator_to_array( $source->get_rows(), false );
+		// Načti všechny řádky a překlíčuj na makro jména.
+		$macro_names = $session['macro_names'] ?? [];
+		$source      = $this->make_source( $session['source_type'], $session['file_path'] );
+		$rows        = [];
+		foreach ( $source->get_rows() as $row ) {
+			// Překlíčuj řádek: originální sloupce → makro jména.
+			$rows[] = $macro_names
+				? self::apply_macro_names( $row, $macro_names )
+				: $row;
+		}
 
 		$result = BatchRunner::start( $rows, $config );
 
@@ -431,6 +409,59 @@ final class ImportPage {
 			$sheet_id,
 			$gid
 		);
+	}
+
+	// -------------------------------------------------------------------------
+	// Statické helper metody.
+
+	/**
+	 * Vygeneruje makro jméno z názvu sloupce (snake_case, ASCII, max 40 znaků).
+	 * "Short definice" → "short_definice"
+	 */
+	public static function column_to_macro( string $col ): string {
+		$name = mb_strtolower( trim( $col ) );
+		// Diakritika → transliterace (jednoduchá).
+		$name = iconv( 'UTF-8', 'ASCII//TRANSLIT//IGNORE', $name ) ?: $name;
+		$name = (string) preg_replace( '/[^a-z0-9]+/', '_', $name );
+		$name = trim( $name, '_' );
+		return mb_substr( $name ?: 'col', 0, 40 );
+	}
+
+	/**
+	 * Vygeneruje makro jména pro všechny sloupce (zajistí unikátnost).
+	 *
+	 * @param  list<string>          $columns
+	 * @return array<string, string> col → macro_name
+	 */
+	public static function generate_macro_names( array $columns ): array {
+		$macros = [];
+		$used   = [];
+		foreach ( $columns as $col ) {
+			$base   = self::column_to_macro( $col );
+			$macro  = $base;
+			$suffix = 2;
+			while ( in_array( $macro, $used, true ) ) {
+				$macro = $base . '_' . $suffix++;
+			}
+			$macros[ $col ] = $macro;
+			$used[]         = $macro;
+		}
+		return $macros;
+	}
+
+	/**
+	 * Překlíčuje řádek z originálních názvů sloupců na makro jména.
+	 *
+	 * @param  array<string, string> $row         Originální řádek (col → value)
+	 * @param  array<string, string> $macro_names col → macro_name
+	 * @return array<string, string> macro_name → value
+	 */
+	public static function apply_macro_names( array $row, array $macro_names ): array {
+		$result = [];
+		foreach ( $macro_names as $col => $macro ) {
+			$result[ $macro ] = $row[ $col ] ?? '';
+		}
+		return $result;
 	}
 
 	private function make_source( string $source_type, string $file_path ): CsvSource|XmlSource {

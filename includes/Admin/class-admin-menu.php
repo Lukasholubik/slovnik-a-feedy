@@ -108,7 +108,19 @@ final class AdminMenu {
 			( new AnalyticsPage() )->enqueue_assets( $hook );
 			return;
 		}
+
 		wp_enqueue_style( 'saf-admin', SAF_URL . 'assets/css/admin.css', [], SAF_VERSION );
+
+		// Template builder JS jen na import stránce.
+		if ( str_contains( $hook, ImportPage::PAGE_SLUG ) ) {
+			wp_enqueue_script(
+				'saf-template-builder',
+				SAF_URL . 'assets/js/saf-template-builder.js',
+				[],
+				SAF_VERSION,
+				true
+			);
+		}
 	}
 
 	public function render_dashboard(): void {

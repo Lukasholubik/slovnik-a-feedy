@@ -119,6 +119,124 @@
 .saf-analytics-table .saf-num-col { text-align:right; }
 .saf-url-slug { font-size:11px; color:#999; font-family:monospace; }
 
+/* ── Krok 1: Makro tabulka ── */
+.saf-macro-table { margin-bottom:0; }
+.saf-macro-input-wrap { display:flex; align-items:center; gap:2px; }
+.saf-macro-brace { font-family:monospace; color:#0073aa; font-weight:700; font-size:14px; line-height:1; }
+.saf-macro-input {
+	width: 130px;
+	font-family: monospace;
+	font-size: 13px;
+	padding: 4px 6px;
+	border: 1px solid #ccc;
+	border-radius: 3px;
+	background: #f8f8ff;
+	color: #0073aa;
+}
+.saf-macro-input:focus { border-color: #0073aa; box-shadow: 0 0 0 1px #0073aa; outline:none; }
+.saf-field-select { font-size:12px; max-width:200px; }
+.saf-preview-val { font-size:12px; color:#666; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ── Krok 2: Builder layout ── */
+.saf-builder-layout {
+	display: grid;
+	grid-template-columns: 220px 1fr 250px;
+	gap: 16px;
+	align-items: start;
+}
+@media (max-width: 1200px) {
+	.saf-builder-layout { grid-template-columns: 200px 1fr; }
+	.saf-builder-preview { display:none; }
+}
+
+.saf-builder-sidebar,
+.saf-builder-editor,
+.saf-builder-preview {
+	background: #fff;
+	border: 1px solid #e0e0e0;
+	border-radius: 6px;
+	padding: 16px;
+	box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+
+.saf-builder-section { margin-bottom:20px; }
+.saf-builder-section__title { font-size:13px; font-weight:700; color:#1a1a2e; margin:0 0 4px; }
+.saf-builder-section__hint { font-size:11px; color:#888; margin:0 0 10px; min-height:32px; }
+.saf-builder-divider { border-top:1px solid #eee; margin:12px 0; }
+
+/* Makro čipy */
+.saf-macro-chips { display:flex; flex-direction:column; gap:5px; }
+.saf-macro-chip {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	padding: 6px 10px;
+	background: #f0f4ff;
+	border: 2px solid #b3c6f0;
+	border-radius: 4px;
+	cursor: pointer;
+	font-family: monospace;
+	font-size: 12px;
+	color: #0073aa;
+	text-align: left;
+	transition: all .15s;
+	width: 100%;
+}
+.saf-macro-chip:hover { background:#dce8ff; border-color:#0073aa; }
+.saf-macro-chip--selected { background:#0073aa; color:#fff; border-color:#005a87; }
+.saf-macro-chip--selected .saf-macro-chip__brace { color:#9dd; }
+.saf-macro-chip__brace { color:#0073aa; font-weight:700; }
+.saf-macro-chip--selected .saf-macro-chip__brace { color:#9dd; }
+.saf-macro-chip__orig { font-family:sans-serif; font-size:10px; color:#888; margin-top:1px; }
+.saf-macro-chip--selected .saf-macro-chip__orig { color:#cde; }
+
+/* Block palette */
+.saf-block-palette { display:flex; flex-direction:column; gap:4px; }
+.saf-block-btn {
+	padding: 6px 10px;
+	background: #fff;
+	border: 1px solid #ddd;
+	border-left: 4px solid #ccc;
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 12px;
+	text-align: left;
+	transition: all .15s;
+}
+.saf-block-btn:not(:disabled):hover { background:#f5f5f5; transform:translateX(2px); }
+.saf-block-btn:disabled { opacity:.4; cursor:not-allowed; }
+.saf-block-btn--inserted { background:#d4edda !important; }
+
+/* Template editor */
+.saf-editor-toolbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.saf-template-area {
+	font-family: 'Courier New', monospace !important;
+	font-size: 12px !important;
+	line-height: 1.6 !important;
+	background: #1a1a2e !important;
+	color: #e0e0e0 !important;
+	border-color: #333 !important;
+	resize: vertical;
+}
+.saf-template-area::placeholder { color:#666; }
+.saf-editor-options { display:flex; gap:16px; align-items:center; margin:10px 0; font-size:13px; }
+
+/* Live preview */
+.saf-live-preview {
+	min-height: 100px;
+	font-size: 13px;
+	line-height: 1.7;
+	color: #333;
+	padding: 8px;
+	background: #fafafa;
+	border: 1px solid #eee;
+	border-radius: 4px;
+}
+.saf-live-preview h2 { font-size:16px; margin:12px 0 4px; color:#1a1a2e; }
+.saf-live-preview h3 { font-size:14px; margin:10px 0 4px; color:#1a1a2e; }
+.saf-live-preview p  { margin:6px 0; }
+.saf-live-preview blockquote { border-left:3px solid #e94560; padding-left:10px; color:#555; margin:8px 0; }
+
 /* ── Import – source tabs ── */
 .saf-source-tabs { display:flex; gap:0; border:1px solid #ddd; border-radius:4px; overflow:hidden; width:fit-content; }
 .saf-source-tab { display:flex; align-items:center; gap:6px; padding:8px 16px; cursor:pointer; font-size:13px; color:#555; background:#fff; border-right:1px solid #ddd; user-select:none; }
