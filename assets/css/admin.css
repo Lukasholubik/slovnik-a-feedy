@@ -1,0 +1,135 @@
+/* Slovník a Feedy – Admin CSS
+   Grou.cz brand colors: #1a1a2e (dark), #e94560 (accent red), #16213e (mid) */
+
+/* ── Wrap ── */
+.saf-wrap { max-width: 1200px; }
+
+/* ── Hlavička ── */
+.saf-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background: #1a1a2e;
+	color: #fff;
+	padding: 14px 20px;
+	border-radius: 6px;
+	margin-bottom: 20px;
+}
+.saf-header__brand { display: flex; align-items: center; gap: 10px; }
+.saf-logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+.saf-logo span { color: #e94560; }
+.saf-header__sep { opacity: .4; font-size: 20px; }
+.saf-header__title { margin: 0; font-size: 18px; font-weight: 500; color: #fff !important; }
+.saf-header__version { font-size: 12px; opacity: .6; }
+
+/* ── Stat karty ── */
+.saf-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 16px;
+	margin-bottom: 20px;
+}
+.saf-card {
+	background: #fff;
+	border: 1px solid #e0e0e0;
+	border-radius: 6px;
+	padding: 16px;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.saf-card--error { border-left: 4px solid #e94560; }
+.saf-card__icon { font-size: 28px; color: #1a1a2e; opacity: .7; }
+.saf-card__num { display: block; font-size: 28px; font-weight: 700; line-height: 1; color: #1a1a2e; }
+.saf-card__label { display: block; font-size: 12px; color: #666; margin-top: 2px; }
+.saf-card__sub { display: block; font-size: 11px; color: #999; margin-top: 2px; }
+
+/* ── Sloupce ── */
+.saf-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+@media (max-width: 900px) { .saf-columns { grid-template-columns: 1fr; } }
+
+/* ── Panel ── */
+.saf-panel {
+	background: #fff;
+	border: 1px solid #e0e0e0;
+	border-radius: 6px;
+	padding: 18px 20px;
+	box-shadow: 0 1px 4px rgba(0,0,0,.06);
+	margin-bottom: 16px;
+}
+.saf-panel--full { grid-column: 1 / -1; }
+.saf-panel__title {
+	font-size: 15px;
+	font-weight: 600;
+	margin: 0 0 12px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid #eee;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.saf-panel__subtitle { font-size: 13px; color: #555; margin: 16px 0 8px; }
+.saf-panel__desc { font-size: 13px; color: #666; margin-bottom: 12px; }
+
+/* ── Feed tabulka ── */
+.saf-feed-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.saf-feed-table td { padding: 6px 4px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+.saf-feed-table td:first-child { width: 160px; color: #444; }
+.saf-feed-table a { word-break: break-all; }
+
+/* ── Akce ── */
+.saf-actions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.saf-actions li a { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ── Nadcházející moduly ── */
+.saf-upcoming { list-style: none; margin: 0; padding: 0; }
+.saf-upcoming li { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #888; padding: 4px 0; }
+
+/* ── Dokumentace ── */
+.saf-docs { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+.saf-docs h3 { font-size: 13px; margin-bottom: 6px; }
+.saf-docs p { font-size: 13px; color: #555; }
+
+/* ── Patička ── */
+.saf-footer { text-align: center; font-size: 12px; color: #999; margin-top: 20px; padding: 10px; }
+.saf-footer a { color: #e94560; text-decoration: none; }
+
+/* ── Logy ── */
+.saf-log-filter {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 12px;
+	background: #fff;
+	border: 1px solid #e0e0e0;
+	padding: 10px 14px;
+	border-radius: 4px;
+}
+.saf-log-filter__count { margin-left: auto; font-size: 12px; color: #888; }
+
+.saf-log-table { margin-bottom: 16px; }
+.saf-log-row--error td { background: #fff5f5 !important; }
+.saf-log-row--warning td { background: #fffbf0 !important; }
+
+.saf-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+}
+.saf-badge--info    { background: #e8f4fd; color: #0073aa; }
+.saf-badge--warning { background: #fff3cd; color: #856404; }
+.saf-badge--error   { background: #f8d7da; color: #842029; }
+
+.saf-log-data { margin-top: 4px; }
+.saf-log-data summary { cursor: pointer; font-size: 11px; color: #0073aa; }
+.saf-log-data pre { background: #f6f6f6; padding: 8px; font-size: 11px; max-height: 150px; overflow: auto; }
+
+.saf-empty { color: #888; font-style: italic; padding: 20px 0; }
+
+.saf-panel--purge { margin-top: 16px; }
+.saf-panel--purge form { display: flex; align-items: center; gap: 8px; }

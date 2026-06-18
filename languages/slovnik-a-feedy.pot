@@ -1,0 +1,49 @@
+# Copyright (C) 2026 Grou.cz
+# This file is distributed under the GPL-2.0+ license.
+msgid ""
+msgstr ""
+"Project-Id-Version: Slovník a Feedy 1.0.0\n"
+"Report-Msgid-Bugs-To: https://grou.cz\n"
+"POT-Creation-Date: 2026-06-18\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"PO-Revision-Date: 2026-06-18\n"
+"Last-Translator: Grou.cz <info@grou.cz>\n"
+"Language-Team: Czech <cs@li.org>\n"
+"Language: cs_CZ\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+"X-Generator: Claude Code\n"
+"X-Domain: slovnik-a-feedy\n"
+
+#: includes/Admin/views/dashboard.php
+msgid "Slovník a Feedy"
+msgstr "Slovník a Feedy"
+
+#: includes/Admin/views/dashboard.php
+msgid "Publikovaných pojmů"
+msgstr "Publikovaných pojmů"
+
+#: includes/Admin/views/dashboard.php
+msgid "RSS Feedy"
+msgstr "RSS Feedy"
+
+#: includes/Admin/views/dashboard.php
+msgid "Rychlé akce"
+msgstr "Rychlé akce"
+
+#: includes/PostType/class-cpt.php
+msgid "Pojmy"
+msgstr "Pojmy"
+
+#: includes/PostType/class-cpt.php
+msgid "Pojem"
+msgstr "Pojem"
+
+#: includes/PostType/class-taxonomy.php
+msgid "Písmena"
+msgstr "Písmena"
+
+#: includes/PostType/class-taxonomy.php
+msgid "Kategorie slovníčku"
+msgstr "Kategorie slovníčku"

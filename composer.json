@@ -1,0 +1,36 @@
+{
+	"name": "grou/slovnik-a-feedy",
+	"description": "WordPress plugin: Slovník a Feedy – streamy pojmů s importem, RSS feedy a Rank Math integrací",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"authors": [
+		{
+			"name": "Grou.cz",
+			"homepage": "https://grou.cz"
+		}
+	],
+	"require": {
+		"php": ">=8.1"
+	},
+	"require-dev": {
+		"wp-coding-standards/wpcs": "^3.0",
+		"phpcsstandards/phpcsutils": "^1.0",
+		"phpcompatibility/phpcompatibility-wp": "*",
+		"dealerdirect/phpcodesniffer-composer-installer": "^1.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"SlovnikAFeedy\\": "includes/"
+		}
+	},
+	"scripts": {
+		"lint":     "phpcs --standard=WordPress ./",
+		"lint-fix": "phpcbf --standard=WordPress ./",
+		"compat":   "phpcs -p ./ --standard=PHPCompatibilityWP --runtime-set testVersion 8.1-"
+	},
+	"config": {
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		}
+	}
+}
