@@ -7,8 +7,9 @@
 
 namespace SlovnikAFeedy\Importer;
 
-use SlovnikAFeedy\PostType\{Cpt, Taxonomy};
-use SlovnikAFeedy\Support\{Logger, Helpers};
+use SlovnikAFeedy\StreamManager;
+use SlovnikAFeedy\Support\Logger;
+use SlovnikAFeedy\Support\Helpers;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -36,9 +37,10 @@ final class Importer {
 		private readonly Mapper          $mapper,
 		private readonly TemplateEngine  $engine,
 		private readonly string          $template,
+		private readonly array           $stream,          // konfigurace cílového streamu
 		private readonly string          $default_status  = 'publish',
 		private readonly bool            $dry_run         = false,
-		private readonly bool            $force_overwrite = false // Rank Math přepsání
+		private readonly bool            $force_overwrite = false
 	) {}
 
 	// -------------------------------------------------------------------------
@@ -113,7 +115,7 @@ final class Importer {
 		$existing_id = $this->find_by_external_id( $external_id );
 
 		$post_data = [
-			'post_type'    => Cpt::POST_TYPE,
+			'post_type'    => $this->stream['cpt'],
 			'post_title'   => sanitize_text_field( $mapped['title'] ),
 			'post_content' => wp_kses_post( $content ),
 			'post_excerpt' => sanitize_textarea_field( $mapped['excerpt'] ),
@@ -228,25 +230,27 @@ final class Importer {
 		$letter_slug = sanitize_title( $mapped['letter'] )
 			?: Helpers::get_letter_slug( $mapped['title'] );
 
-		if ( $letter_slug ) {
-			$letter_term = get_term_by( 'slug', $letter_slug, Taxonomy::TAX_LETTER );
+		if ( $letter_slug && ( $this->stream['tax_letter'] ?? true ) ) {
+			$tax_letter  = StreamManager::tax_letter( $this->stream );
+			$letter_term = get_term_by( 'slug', $letter_slug, $tax_letter );
 			if ( $letter_term instanceof \WP_Term ) {
-				wp_set_object_terms( $post_id, $letter_term->term_id, Taxonomy::TAX_LETTER );
+				wp_set_object_terms( $post_id, $letter_term->term_id, $tax_letter );
 			}
 		}
 
 		// Kategorie (může být více oddělených čárkou).
-		if ( $mapped['category'] !== '' ) {
+		if ( $mapped['category'] !== '' && ( $this->stream['tax_cat'] ?? true ) ) {
+			$tax_cat   = StreamManager::tax_cat( $this->stream );
 			$cat_slugs = array_filter( array_map( 'trim', explode( ',', $mapped['category'] ) ) );
 			$term_ids  = [];
 			foreach ( $cat_slugs as $cat_slug ) {
-				$term = get_term_by( 'slug', sanitize_title( $cat_slug ), Taxonomy::TAX_CAT );
+				$term = get_term_by( 'slug', sanitize_title( $cat_slug ), $tax_cat );
 				if ( $term instanceof \WP_Term ) {
 					$term_ids[] = $term->term_id;
 				}
 			}
 			if ( $term_ids ) {
-				wp_set_object_terms( $post_id, $term_ids, Taxonomy::TAX_CAT );
+				wp_set_object_terms( $post_id, $term_ids, $tax_cat );
 			}
 		}
 	}

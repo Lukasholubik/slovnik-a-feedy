@@ -55,10 +55,25 @@ $step_labels = [
 
 	<!-- ── KROK 0 – Zdroj dat ── -->
 	<?php if ( $step === 0 ) : ?>
+	<?php $stream_options = \SlovnikAFeedy\StreamManager::get_options(); ?>
 	<div class="saf-panel">
 		<form method="post" enctype="multipart/form-data">
 			<?php wp_nonce_field( 'saf_import_step_0', 'saf_import_nonce' ); ?>
 			<input type="hidden" name="saf_step" value="0">
+
+			<?php if ( count( $stream_options ) > 1 ) : ?>
+			<h2 class="saf-panel__title"><?php esc_html_e( 'Cílový stream', 'slovnik-a-feedy' ); ?></h2>
+			<div class="saf-source-inputs">
+				<label for="saf-stream-id"><strong><?php esc_html_e( 'Importovat do:', 'slovnik-a-feedy' ); ?></strong></label>
+				<select id="saf-stream-id" name="stream_id" class="regular-text">
+					<?php foreach ( $stream_options as $sid => $sname ) : ?>
+					<option value="<?php echo esc_attr( $sid ); ?>"><?php echo esc_html( $sname ); ?></option>
+					<?php endforeach; ?>
+				</select>
+			</div>
+			<?php else : ?>
+			<input type="hidden" name="stream_id" value="<?php echo esc_attr( array_key_first( $stream_options ) ); ?>">
+			<?php endif; ?>
 
 			<h2 class="saf-panel__title"><?php esc_html_e( 'Vyberte zdroj dat', 'slovnik-a-feedy' ); ?></h2>
 

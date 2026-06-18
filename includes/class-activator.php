@@ -11,31 +11,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Spouští se při aktivaci pluginu přes WP Admin.
- */
 final class Activator {
 
 	public static function activate(): void {
-		// Registruj CPT a taxonomie před flush_rewrite_rules.
-		$cpt      = new PostType\Cpt();
-		$taxonomy = new PostType\Taxonomy();
-		$cpt->register();
-		$taxonomy->register();
+		// Vytvoř výchozí stream pokud žádný neexistuje.
+		StreamManager::create_default();
 
-		// Předvyplň taxon glossary_letter písmeny A–Z + 0–9.
-		PostType\Taxonomy::seed_letters();
+		// Registruj CPT/tax pro všechny streamy (nutné před flush_rewrite_rules).
+		foreach ( StreamManager::get_all() as $stream ) {
+			( new PostType\Cpt( $stream ) )->register();
+			$tax = new PostType\Taxonomy( $stream );
+			$tax->register();
+			// Předvyplň písmena A–Z pro každý stream s letter taxonomií.
+			if ( $stream['tax_letter'] ) {
+				PostType\Taxonomy::seed_letters( $stream );
+			}
+		}
 
-		// Výchozí nastavení pluginu (přidá jen pokud ještě neexistují).
+		// Výchozí options.
 		add_option( 'saf_version',        SAF_VERSION );
 		add_option( 'saf_default_status', 'publish' );
 		add_option( 'saf_gsheet_url',     '' );
-		add_option( 'saf_reimport_schedule', 'off' );
 
-		// Vytvoření DB tabulky pro logy.
+		// DB tabulka pro logy.
 		Support\Logger::create_table();
 
-		// Přidej vlastní capability administrátorům.
+		// Capability pro administrátory.
 		$role = get_role( 'administrator' );
 		if ( $role instanceof \WP_Role ) {
 			$role->add_cap( 'manage_glossary' );

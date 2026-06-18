@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Registruje všechny WordPress háky a koordinuje moduly pluginu.
+ * Registruje všechny WordPress háky pro všechny aktivní streamy.
  */
 final class Plugin {
 
@@ -32,37 +32,19 @@ final class Plugin {
 		$this->register_hooks();
 	}
 
+	// -------------------------------------------------------------------------
+
 	private function load_textdomain(): void {
 		add_action(
 			'init',
 			static function (): void {
-				load_plugin_textdomain(
-					'slovnik-a-feedy',
-					false,
-					dirname( SAF_BASENAME ) . '/languages'
-				);
+				load_plugin_textdomain( 'slovnik-a-feedy', false, dirname( SAF_BASENAME ) . '/languages' );
 			}
 		);
 	}
 
-	public function handle_delete_profile(): void {
-		if ( ! current_user_can( 'manage_glossary' ) ) {
-			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
-		}
-		$profile_id = sanitize_key( $_GET['profile_id'] ?? '' );
-		if ( ! $profile_id || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'saf_delete_profile_' . $profile_id ) ) {
-			wp_die( esc_html__( 'Neplatný token.', 'slovnik-a-feedy' ) );
-		}
-		Admin\Settings::delete_profile( $profile_id );
-		wp_safe_redirect( admin_url( 'admin.php?page=slovnik-a-feedy-nastaveni&deleted=1' ) );
-		exit;
-	}
-
 	private function register_hooks(): void {
-		// Jednorázový capability grant – spustí se jen pokud administrátor
-		// manage_glossary ještě nemá (např. po ruční deaktivaci capability).
-		// Použití admin_init místo user_has_cap filtru zabraňuje volání
-		// na každý current_user_can() call (stovky za stránku).
+		// Jednorázový capability grant pro administrátory.
 		add_action( 'admin_init', static function (): void {
 			if ( ! current_user_can( 'manage_glossary' ) && current_user_can( 'manage_options' ) ) {
 				$role = get_role( 'administrator' );
@@ -72,24 +54,31 @@ final class Plugin {
 			}
 		} );
 
-		// CPT a taxonomie.
-		$cpt      = new PostType\Cpt();
-		$taxonomy = new PostType\Taxonomy();
-		add_action( 'init', [ $cpt, 'register' ] );
-		add_action( 'init', [ $taxonomy, 'register' ] );
+		// Registrace CPT a taxonomií pro všechny aktivní streamy.
+		add_action( 'init', static function (): void {
+			foreach ( StreamManager::get_all() as $stream ) {
+				if ( ! ( $stream['active'] ?? true ) ) {
+					continue;
+				}
+				( new PostType\Cpt( $stream ) )->register();
+				( new PostType\Taxonomy( $stream ) )->register();
+			}
+		} );
 
-		// Rank Math – zařazení CPT do sitemapy.
+		// Rank Math – všechny aktivní CPT streamy do sitemapy.
 		add_filter(
 			'rank_math/sitemap/post_types',
 			static function ( array $post_types ): array {
-				if ( ! in_array( 'glossary', $post_types, true ) ) {
-					$post_types[] = 'glossary';
+				foreach ( StreamManager::get_all() as $stream ) {
+					if ( $stream['active'] ?? true ) {
+						$post_types[] = $stream['cpt'];
+					}
 				}
-				return $post_types;
+				return array_unique( $post_types );
 			}
 		);
 
-		// Schema DefinedTerm na singulárních stránkách pojmu.
+		// Schema DefinedTerm na singulárních stránkách libovolného streamu.
 		$schema = new SEO\Schema();
 		add_filter( 'rank_math/json_ld', [ $schema, 'add_defined_term' ], 10, 2 );
 
@@ -105,5 +94,25 @@ final class Plugin {
 			add_action( 'admin_menu', [ $admin_menu, 'register' ] );
 			add_action( 'admin_enqueue_scripts', [ $admin_menu, 'enqueue_assets' ] );
 		}
+	}
+
+	// -------------------------------------------------------------------------
+
+	public function handle_delete_profile(): void {
+		if ( ! current_user_can( 'manage_glossary' ) ) {
+			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
+		}
+		$profile_id = sanitize_key( $_GET['profile_id'] ?? '' );
+		if ( ! $profile_id
+			|| ! wp_verify_nonce(
+				sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ),
+				'saf_delete_profile_' . $profile_id
+			)
+		) {
+			wp_die( esc_html__( 'Neplatný token.', 'slovnik-a-feedy' ) );
+		}
+		Admin\Settings::delete_profile( $profile_id );
+		wp_safe_redirect( admin_url( 'admin.php?page=slovnik-a-feedy-nastaveni&deleted=1' ) );
+		exit;
 	}
 }

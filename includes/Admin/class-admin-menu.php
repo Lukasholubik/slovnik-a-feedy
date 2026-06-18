@@ -47,6 +47,15 @@ final class AdminMenu {
 
 		add_submenu_page(
 			self::MENU_SLUG,
+			__( 'Streamy', 'slovnik-a-feedy' ),
+			__( 'Streamy', 'slovnik-a-feedy' ),
+			self::CAP,
+			StreamsPage::PAGE_SLUG,
+			[ $this, 'render_streams' ]
+		);
+
+		add_submenu_page(
+			self::MENU_SLUG,
 			__( 'Import', 'slovnik-a-feedy' ),
 			__( 'Import', 'slovnik-a-feedy' ),
 			self::CAP,
@@ -93,6 +102,13 @@ final class AdminMenu {
 			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
 		}
 		require SAF_DIR . 'includes/Admin/views/dashboard.php';
+	}
+
+	public function render_streams(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
+		}
+		( new StreamsPage() )->render();
 	}
 
 	public function render_import(): void {

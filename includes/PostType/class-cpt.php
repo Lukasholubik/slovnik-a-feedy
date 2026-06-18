@@ -1,10 +1,6 @@
 <?php
 /**
- * Registrace Custom Post Type: glossary (Pojmy slovníčku).
- *
- * Archiv: /slovnik/
- * Singl:  /slovnik/{slug}/
- * Feed:   /slovnik/feed/ a /slovnik/feed/atom/
+ * Registrace Custom Post Type – dynamická, řízená konfigurací streamu.
  *
  * @package SlovnikAFeedy
  */
@@ -16,19 +12,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * CPT glossary – samostatný stream pojmů kompatibilní s Gutenbergem i Elementorem.
+ * Registruje jeden CPT dle konfigurace streamu.
+ * Každý stream dostane vlastní CPT, archiv, RSS feedy a REST endpoint.
  */
 final class Cpt {
 
-	public const POST_TYPE    = 'glossary';
-	public const REWRITE_SLUG = 'slovnik';
+	/** @param array $stream  Konfigurace ze StreamManager::get() */
+	public function __construct( private readonly array $stream ) {}
+
+	public function get_post_type(): string {
+		return $this->stream['cpt'];
+	}
+
+	public function get_url_slug(): string {
+		return $this->stream['url_slug'];
+	}
 
 	public function register(): void {
 		register_post_type(
-			self::POST_TYPE,
+			$this->stream['cpt'],
 			[
 				'labels'               => $this->get_labels(),
-				'description'          => __( 'Pojmy slovníčku – streamovaný obsah s vlastním RSS feedem.', 'slovnik-a-feedy' ),
+				'description'          => sprintf(
+					/* translators: %s: název streamu */
+					__( 'Stream „%s" – obsah s vlastním RSS feedem a archivem.', 'slovnik-a-feedy' ),
+					$this->stream['name']
+				),
 				'public'               => true,
 				'publicly_queryable'   => true,
 				'show_ui'              => true,
@@ -36,22 +45,18 @@ final class Cpt {
 				'show_in_nav_menus'    => true,
 				'show_in_admin_bar'    => true,
 				'query_var'            => true,
-				/**
-				 * feeds => true aktivuje /slovnik/feed/ (RSS2) a /slovnik/feed/atom/.
-				 * with_front => false – URL nezačíná /blog/ ani jinou přednastavenou přeponou.
-				 */
 				'rewrite'              => [
-					'slug'       => self::REWRITE_SLUG,
+					'slug'       => $this->stream['url_slug'],
 					'with_front' => false,
-					'feeds'      => true,
+					'feeds'      => true,   // /url_slug/feed/ a /url_slug/feed/atom/
 					'pages'      => true,
 				],
 				'capability_type'      => 'post',
 				'map_meta_cap'         => true,
-				'has_archive'          => self::REWRITE_SLUG,
+				'has_archive'          => $this->stream['url_slug'],
 				'hierarchical'         => false,
 				'menu_position'        => 5,
-				'menu_icon'            => 'dashicons-book-alt',
+				'menu_icon'            => $this->stream['icon'],
 				'supports'             => [
 					'title',
 					'editor',
@@ -61,46 +66,46 @@ final class Cpt {
 					'revisions',
 					'author',
 				],
-				'taxonomies'           => [
-					Taxonomy::TAX_LETTER,
-					Taxonomy::TAX_CAT,
-				],
-				// REST API – nutné pro Gutenberg i Elementor Theme Builder.
+				'taxonomies'           => $this->get_taxonomy_slugs(),
 				'show_in_rest'         => true,
-				'rest_base'            => 'glossary',
+				'rest_base'            => $this->stream['cpt'],
 				'rest_controller_class' => 'WP_REST_Posts_Controller',
 			]
 		);
 	}
 
+	/** @return list<string> */
+	private function get_taxonomy_slugs(): array {
+		$taxes = [];
+		if ( $this->stream['tax_letter'] ) {
+			$taxes[] = $this->stream['cpt'] . '_letter';
+		}
+		if ( $this->stream['tax_cat'] ) {
+			$taxes[] = $this->stream['cpt'] . '_cat';
+		}
+		return $taxes;
+	}
+
 	/** @return array<string, string|null> */
 	private function get_labels(): array {
+		$name = esc_html( $this->stream['name'] );
+
 		return [
-			'name'                  => _x( 'Pojmy – Grou.cz', 'post type general name', 'slovnik-a-feedy' ),
-			'singular_name'         => _x( 'Pojem – Grou.cz', 'post type singular name', 'slovnik-a-feedy' ),
-			'menu_name'             => __( 'Pojmy slovníčku', 'slovnik-a-feedy' ),
-			'name_admin_bar'        => __( 'Pojem', 'slovnik-a-feedy' ),
+			// name/singular_name záměrně BEZ "Grou.cz" – čtou je Rank Math breadcrumby.
+			'name'                  => $name,
+			'singular_name'         => $name,
+			'menu_name'             => $name,
+			'name_admin_bar'        => $name,
 			'add_new'               => __( 'Přidat nový', 'slovnik-a-feedy' ),
-			'add_new_item'          => __( 'Přidat nový pojem', 'slovnik-a-feedy' ),
-			'new_item'              => __( 'Nový pojem', 'slovnik-a-feedy' ),
-			'edit_item'             => __( 'Upravit pojem', 'slovnik-a-feedy' ),
-			'view_item'             => __( 'Zobrazit pojem', 'slovnik-a-feedy' ),
-			'view_items'            => __( 'Zobrazit pojmy', 'slovnik-a-feedy' ),
-			'all_items'             => __( 'Všechny pojmy', 'slovnik-a-feedy' ),
-			'search_items'          => __( 'Hledat pojmy', 'slovnik-a-feedy' ),
-			'not_found'             => __( 'Žádné pojmy nenalezeny.', 'slovnik-a-feedy' ),
-			'not_found_in_trash'    => __( 'Žádné pojmy v koši.', 'slovnik-a-feedy' ),
-			'archives'              => __( 'Archiv pojmů', 'slovnik-a-feedy' ),
-			'attributes'            => __( 'Atributy pojmu', 'slovnik-a-feedy' ),
-			'featured_image'        => __( 'Náhledový obrázek pojmu', 'slovnik-a-feedy' ),
-			'set_featured_image'    => __( 'Nastavit náhledový obrázek', 'slovnik-a-feedy' ),
-			'remove_featured_image' => __( 'Odebrat náhledový obrázek', 'slovnik-a-feedy' ),
-			'use_featured_image'    => __( 'Použít jako náhledový obrázek', 'slovnik-a-feedy' ),
-			'insert_into_item'      => __( 'Vložit do pojmu', 'slovnik-a-feedy' ),
-			'uploaded_to_this_item' => __( 'Nahráno k tomuto pojmu', 'slovnik-a-feedy' ),
-			'items_list'            => __( 'Seznam pojmů', 'slovnik-a-feedy' ),
-			'items_list_navigation' => __( 'Navigace v seznamu pojmů', 'slovnik-a-feedy' ),
-			'filter_items_list'     => __( 'Filtrovat seznam pojmů', 'slovnik-a-feedy' ),
+			'add_new_item'          => sprintf( __( 'Přidat nový – %s', 'slovnik-a-feedy' ), $name ),
+			'new_item'              => sprintf( __( 'Nový – %s', 'slovnik-a-feedy' ), $name ),
+			'edit_item'             => sprintf( __( 'Upravit – %s', 'slovnik-a-feedy' ), $name ),
+			'view_item'             => sprintf( __( 'Zobrazit – %s', 'slovnik-a-feedy' ), $name ),
+			'all_items'             => sprintf( __( 'Vše – %s', 'slovnik-a-feedy' ), $name ),
+			'search_items'          => sprintf( __( 'Hledat v %s', 'slovnik-a-feedy' ), $name ),
+			'not_found'             => __( 'Žádné záznamy nenalezeny.', 'slovnik-a-feedy' ),
+			'not_found_in_trash'    => __( 'Žádné záznamy v koši.', 'slovnik-a-feedy' ),
+			'archives'              => sprintf( __( 'Archiv – %s', 'slovnik-a-feedy' ), $name ),
 			'parent_item_colon'     => null,
 		];
 	}

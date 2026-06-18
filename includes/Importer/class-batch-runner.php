@@ -133,12 +133,13 @@ final class BatchRunner {
 	}
 
 	private static function build_importer( array $config ): Importer {
-		$mapper  = new Mapper( $config['mapping'] ?? [] );
-		$engine  = new TemplateEngine();
+		$mapper = new Mapper( $config['mapping'] ?? [] );
+		$engine = new TemplateEngine();
 		return new Importer(
 			$mapper,
 			$engine,
 			$config['template']        ?? TemplateEngine::default_template(),
+			$config['stream']          ?? [],
 			$config['default_status']  ?? 'publish',
 			$config['dry_run']         ?? false,
 			$config['force_overwrite'] ?? false

@@ -7,6 +7,7 @@
 
 namespace SlovnikAFeedy\Admin;
 
+use SlovnikAFeedy\StreamManager;
 use SlovnikAFeedy\Importer\{CsvSource, XmlSource, Mapper, TemplateEngine, Importer, BatchRunner};
 use SlovnikAFeedy\Support\Logger;
 
@@ -73,6 +74,13 @@ final class ImportPage {
 	/** Krok 0 – nahrání souboru nebo URL, detekce sloupců. */
 	private function handle_step0(): void {
 		$source_type = sanitize_key( $_POST['source_type'] ?? 'csv' );
+		$stream_id   = sanitize_key( $_POST['stream_id'] ?? '' );
+		$stream      = $stream_id ? StreamManager::get( $stream_id ) : null;
+		if ( ! $stream ) {
+			// Fallback na první aktivní stream.
+			$all    = StreamManager::get_all();
+			$stream = reset( $all ) ?: [];
+		}
 
 		// Načti profil pokud byl vybrán.
 		$profile_id = sanitize_key( $_POST['load_profile'] ?? '' );
@@ -97,6 +105,7 @@ final class ImportPage {
 				'columns'     => $columns,
 				'mapping'     => $auto_mapping,
 				'template'    => $profile ? $profile['template'] : TemplateEngine::default_template(),
+				'stream'      => $stream,
 			] );
 
 			$this->view_data = array_merge( $this->view_data, [
@@ -106,6 +115,7 @@ final class ImportPage {
 				'auto_mapping' => $auto_mapping,
 				'fields'       => Mapper::FIELDS,
 				'profile'      => $profile,
+				'stream'       => $stream,
 			] );
 
 		} catch ( \Throwable $e ) {
@@ -199,6 +209,7 @@ final class ImportPage {
 		$config = [
 			'mapping'        => $session['mapping'],
 			'template'       => $template,
+			'stream'         => $session['stream'] ?? [],
 			'default_status' => $default_status,
 			'dry_run'        => $is_dry_run,
 			'force_overwrite' => $force_overwrite,
