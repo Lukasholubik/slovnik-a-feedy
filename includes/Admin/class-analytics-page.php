@@ -60,8 +60,9 @@ final class AnalyticsPage {
 		$prev_summary = AnalyticsStore::get_summary( $prev_from, $prev_to, $cpt );
 
 		// Top 10 + Bottom 10.
+		$show_zero    = isset( $_GET['show_zero'] ) && $_GET['show_zero'] === '1'; // phpcs:ignore WordPress.Security.NonceVerification
 		$top_pages    = AnalyticsStore::get_pages( $from, $to, $cpt, 'views', 'DESC', 10, 0 );
-		$bottom_pages = AnalyticsStore::get_pages( $from, $to, $cpt, 'views', 'ASC',  10, 0 );
+		$bottom_pages = AnalyticsStore::get_pages( $from, $to, $cpt, 'views', 'ASC',  10, 0, $show_zero );
 
 		// Diagnostika trackingu.
 		$tracking_active = (bool) get_option( 'saf_track_admins', false );

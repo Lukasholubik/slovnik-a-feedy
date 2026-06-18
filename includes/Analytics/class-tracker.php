@@ -265,21 +265,54 @@ final class Tracker {
 	}
 
 	/**
-	 * Zajistí existenci tabulky + přidá chybějící sloupce (dbDelta).
+	 * Zajistí existenci tabulky + přidá chybějící sloupce.
+	 * Bezpečné volat opakovaně – dbDelta je idempotentní.
 	 */
 	public static function ensure_table(): void {
 		global $wpdb;
 
-		// Pokud tabulka neexistuje nebo DB verze je starší, spusť create/update.
-		$current = get_option( 'saf_db_version', '0' );
-		if ( version_compare( $current, SAF_VERSION, '<' ) ) {
-			static::create_table();
-		}
-		// Rychlá kontrola: existuje sloupec time_total?
-		$col = $wpdb->get_var( "SHOW COLUMNS FROM {$wpdb->prefix}" . self::TABLE . " LIKE 'time_total'" ); // phpcs:ignore
+		$table = $wpdb->prefix . self::TABLE;
+
+		// Zkontroluj existenci time_total (nový sloupec přidaný v aktualizaci).
+		$col = $wpdb->get_var( // phpcs:ignore
+			"SELECT COLUMN_NAME FROM information_schema.COLUMNS
+			 WHERE TABLE_SCHEMA = DATABASE()
+			 AND TABLE_NAME = '{$table}'
+			 AND COLUMN_NAME = 'time_total'"
+		);
+
 		if ( ! $col ) {
+			// Přidej chybějící sloupce ručně (ALTER je rychlejší než dbDelta pro existující tabulku).
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN IF NOT EXISTS time_total bigint(20) UNSIGNED NOT NULL DEFAULT 0" ); // phpcs:ignore
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN IF NOT EXISTS time_count int(10) UNSIGNED NOT NULL DEFAULT 0" );    // phpcs:ignore
+			update_option( 'saf_db_version', SAF_VERSION );
+		}
+
+		// Pokud tabulka vůbec neexistuje.
+		$exists = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ); // phpcs:ignore
+		if ( ! $exists ) {
 			static::create_table();
 		}
+	}
+
+	/**
+	 * Vrátí true pokud sloupce time_total/time_count existují v DB.
+	 * Výsledek je cached pro jeden request.
+	 */
+	public static function has_time_columns(): bool {
+		static $cache = null;
+		if ( $cache !== null ) {
+			return $cache;
+		}
+		global $wpdb;
+		$col    = $wpdb->get_var( // phpcs:ignore
+			"SELECT COLUMN_NAME FROM information_schema.COLUMNS
+			 WHERE TABLE_SCHEMA = DATABASE()
+			 AND TABLE_NAME = '{$wpdb->prefix}" . self::TABLE . "'
+			 AND COLUMN_NAME = 'time_total'"
+		);
+		$cache = (bool) $col;
+		return $cache;
 	}
 
 	public static function drop_table(): void {

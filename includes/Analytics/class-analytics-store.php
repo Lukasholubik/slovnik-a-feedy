@@ -145,11 +145,12 @@ final class AnalyticsStore {
 	public static function get_pages(
 		string $from,
 		string $to,
-		string $cpt      = '',
-		string $order_by = 'views',
-		string $order    = 'DESC',
-		int    $limit    = 20,
-		int    $offset   = 0
+		string $cpt       = '',
+		string $order_by  = 'views',
+		string $order     = 'DESC',
+		int    $limit     = 20,
+		int    $offset    = 0,
+		bool   $show_zero = false  // true = vrátit i stránky s 0 zobrazeními
 	): array {
 		global $wpdb;
 
@@ -173,23 +174,30 @@ final class AnalyticsStore {
 			}
 		}
 
+		// Pokud show_zero = false, zobrazuj jen stránky které měly alespoň 1 zobrazení.
+		if ( ! $show_zero ) {
+			$where .= ' AND s.views > 0';
+		}
+
 		$params[] = $limit;
 		$params[] = $offset;
+
+		// Avg_time sloupce jsou volitelné (přidány aktualizací) – query se přizpůsobí.
+		$time_select = \SlovnikAFeedy\Analytics\Tracker::has_time_columns()
+			? "CASE WHEN SUM(s.time_count) > 0 THEN ROUND(SUM(s.time_total) / SUM(s.time_count)) ELSE 0 END AS avg_time"
+			: '0 AS avg_time';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		return (array) $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
-					p.ID                                                   AS post_id,
-					p.post_title                                           AS title,
-					p.post_name                                            AS slug,
-					p.post_type                                            AS cpt,
-					COALESCE(SUM(s.views), 0)                              AS views,
-					COALESCE(SUM(s.clicks), 0)                             AS clicks,
-					CASE WHEN SUM(s.time_count) > 0
-						THEN ROUND(SUM(s.time_total) / SUM(s.time_count))
-						ELSE 0
-					END                                                    AS avg_time
+					p.ID                              AS post_id,
+					p.post_title                      AS title,
+					p.post_name                       AS slug,
+					p.post_type                       AS cpt,
+					COALESCE(SUM(s.views), 0)         AS views,
+					COALESCE(SUM(s.clicks), 0)        AS clicks,
+					{$time_select}
 				FROM {$table} s
 				JOIN {$wpdb->posts} p ON p.ID = s.post_id
 				{$where}

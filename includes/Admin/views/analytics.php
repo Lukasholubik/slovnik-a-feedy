@@ -228,9 +228,24 @@ $trend_icon = static function ( int $now, int $prev ): string {
 
 		<!-- BOTTOM 10 nejslabších -->
 		<div class="saf-panel">
-			<h2 class="saf-panel__title" style="color:#e94560">
-				▼ <?php esc_html_e( 'Bottom 10 – slabé stránky', 'slovnik-a-feedy' ); ?>
-			</h2>
+			<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+				<h2 class="saf-panel__title" style="color:#e94560;margin:0">
+					▼ <?php esc_html_e( 'Bottom 10 – slabé stránky', 'slovnik-a-feedy' ); ?>
+				</h2>
+				<?php
+				$show_zero = isset( $_GET['show_zero'] ) && $_GET['show_zero'] === '1'; // phpcs:ignore WordPress.Security.NonceVerification
+				$toggle_url = add_query_arg( array_merge( $filters, [ 'show_zero' => $show_zero ? '0' : '1' ] ), $base_url );
+				?>
+				<a href="<?php echo esc_url( $toggle_url ); ?>"
+					class="button button-small"
+					style="font-size:11px">
+					<?php if ( $show_zero ) : ?>
+					<?php esc_html_e( 'Zobrazit jen 1+ zobrazení', 'slovnik-a-feedy' ); ?>
+					<?php else : ?>
+					<?php esc_html_e( 'Zobrazit i s 0 zobrazeními', 'slovnik-a-feedy' ); ?>
+					<?php endif; ?>
+				</a>
+			</div>
 			<p class="description" style="margin-bottom:8px;font-size:11px">
 				<?php esc_html_e( 'Stránky s nejnižší návštěvností – kandidáti na aktualizaci obsahu nebo posílení interními linky.', 'slovnik-a-feedy' ); ?>
 			</p>

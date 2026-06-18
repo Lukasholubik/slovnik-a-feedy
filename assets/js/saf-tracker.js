@@ -10,6 +10,7 @@
 	var postId    = parseInt( config.postId, 10 );
 	var startTime = Date.now();
 	var clickSent = false;
+	var timeSent  = false; // ochrana proti dvojitému odeslání
 
 	// ── Odeslání kliknutí ────────────────────────────────────────────────────
 
@@ -22,24 +23,30 @@
 	// ── Odeslání doby na stránce ─────────────────────────────────────────────
 
 	function sendTime() {
+		if ( timeSent ) return; // zabránění dvojitému odeslání (pagehide + beforeunload)
 		var seconds = Math.round( ( Date.now() - startTime ) / 1000 );
-		if ( seconds < 3 || seconds > 3600 ) return; // ignoruj extrémní hodnoty
+		if ( seconds < 3 || seconds > 3600 ) return;
+		timeSent = true;
 		send( config.timeUrl, { post_id: postId, nonce: config.nonce, seconds: seconds } );
 	}
 
-	// ── Pomocná funkce sendBeacon / fetch ─────────────────────────────────────
+	// ── Pomocná sendBeacon / fetch ─────────────────────────────────────────
 
 	function send( url, data ) {
 		var body = JSON.stringify( data );
 		if ( navigator.sendBeacon ) {
 			navigator.sendBeacon( url, new Blob( [body], { type: 'application/json' } ) );
 		} else {
-			fetch( url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true } )
-				.catch( function () {} );
+			fetch( url, {
+				method:    'POST',
+				headers:   { 'Content-Type': 'application/json' },
+				body:      body,
+				keepalive: true,
+			} ).catch( function () {} );
 		}
 	}
 
-	// ── Sledování kliknutí na odcházející linky ───────────────────────────────
+	// ── Kliknutí na odcházející linky ────────────────────────────────────────
 
 	document.addEventListener( 'click', function ( e ) {
 		var el = e.target;
@@ -49,14 +56,14 @@
 		}
 	} );
 
-	// ── Sledování odchodu ze stránky ─────────────────────────────────────────
+	// ── Odchod ze stránky – pagehide je spolehlivější ────────────────────────
 
 	window.addEventListener( 'pagehide', function () {
 		sendTime();
-		sendClick(); // klik = odchod (pokud neodeslán dřív)
+		sendClick(); // zaznamenat i odchod bez kliknutí
 	} );
 
-	// Fallback pro starší prohlížeče.
+	// Fallback pro Safari/starší prohlížeče.
 	window.addEventListener( 'beforeunload', function () {
 		sendTime();
 	} );
