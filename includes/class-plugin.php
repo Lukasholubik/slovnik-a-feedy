@@ -54,7 +54,7 @@ final class Plugin {
 			}
 		} );
 
-		// Registrace CPT a taxonomií pro všechny aktivní streamy.
+		// Registrace CPT a taxonomií – priorita 1 (před ostatními pluginy na init).
 		add_action( 'init', static function (): void {
 			foreach ( StreamManager::get_all() as $stream ) {
 				if ( ! ( $stream['active'] ?? true ) ) {
@@ -63,7 +63,7 @@ final class Plugin {
 				( new PostType\Cpt( $stream ) )->register();
 				( new PostType\Taxonomy( $stream ) )->register();
 			}
-		} );
+		}, 1 );
 
 		// Rank Math – všechny aktivní CPT streamy do sitemapy.
 		add_filter(

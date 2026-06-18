@@ -136,9 +136,7 @@ final class AdminMenu {
 		if ( ! current_user_can( self::CAP ) ) {
 			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
 		}
-		$page      = new ImportPage();
-		$view_data = $page->get_view_data(); // data pro view (prázdná při GET)
-		$page->render();
+		( new ImportPage() )->render();
 	}
 
 	public function render_settings(): void {

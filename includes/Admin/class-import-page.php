@@ -46,6 +46,8 @@ final class ImportPage {
 		}
 
 		$this->view_data['profiles'] = Settings::get_profiles();
+		// Předej view_data jako lokální proměnnou – require ji vidí v daném scope.
+		$view_data = $this->view_data;
 		require SAF_DIR . 'includes/Admin/views/import.php';
 	}
 
