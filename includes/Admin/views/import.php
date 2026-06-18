@@ -63,8 +63,144 @@ $step_labels = [
 	<?php
 	// ── KROK 0 – Zdroj dat ────────────────────────────────────────────────────
 	if ( $step === 0 ) :
-		$stream_options = \SlovnikAFeedy\StreamManager::get_options();
+		$stream_options  = \SlovnikAFeedy\StreamManager::get_options();
+		$active_sessions = \SlovnikAFeedy\Admin\ImportSessionRegistry::get_active();
+		$all_sessions    = \SlovnikAFeedy\Admin\ImportSessionRegistry::get_all();
 	?>
+
+	<?php if ( $active_sessions ) : ?>
+	<!-- Panel nedokončených importů -->
+	<div class="saf-panel saf-panel--resume">
+		<h2 class="saf-panel__title" style="color:#e94560">
+			<span class="dashicons dashicons-warning"></span>
+			<?php printf( esc_html__( 'Nedokončené importy (%d)', 'slovnik-a-feedy' ), count( $active_sessions ) ); ?>
+		</h2>
+		<p class="saf-panel__desc">
+			<?php esc_html_e( 'Tyto importy byly přerušeny. Klikni "Pokračovat" pro obnovení od místa kde jsi skončil.', 'slovnik-a-feedy' ); ?>
+		</p>
+		<table class="wp-list-table widefat striped">
+			<thead>
+				<tr>
+					<th><?php esc_html_e( 'Datum / Soubor', 'slovnik-a-feedy' ); ?></th>
+					<th><?php esc_html_e( 'Stream', 'slovnik-a-feedy' ); ?></th>
+					<th><?php esc_html_e( 'Stav', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:280px"><?php esc_html_e( 'Akce', 'slovnik-a-feedy' ); ?></th>
+				</tr>
+			</thead>
+			<tbody>
+			<?php foreach ( $active_sessions as $sid => $ses ) : ?>
+			<tr>
+				<td>
+					<strong><?php echo esc_html( $ses['file_name'] ?: '—' ); ?></strong><br>
+					<span style="font-size:11px;color:#888">
+						<?php echo esc_html( date_i18n( 'd.m.Y H:i', strtotime( $ses['created_at'] ) ) ); ?>
+						· <?php echo esc_html( $ses['total_rows'] ); ?> <?php esc_html_e( 'řádků', 'slovnik-a-feedy' ); ?>
+						· <?php echo esc_html( $ses['macro_count'] ); ?> <?php esc_html_e( 'sloupců', 'slovnik-a-feedy' ); ?>
+					</span>
+				</td>
+				<td><?php echo esc_html( $ses['stream_name'] ?: '—' ); ?></td>
+				<td>
+					<span class="saf-badge saf-badge--warning">
+						<?php echo esc_html( \SlovnikAFeedy\Admin\ImportSessionRegistry::step_label( $ses['last_step'] ) ); ?>
+					</span>
+				</td>
+				<td>
+					<!-- Pokračovat na makra (krok 1) -->
+					<form method="post" style="display:inline">
+						<?php wp_nonce_field( 'saf_resume', 'saf_resume_nonce' ); ?>
+						<input type="hidden" name="saf_action" value="resume_session">
+						<input type="hidden" name="session_id" value="<?php echo esc_attr( $sid ); ?>">
+						<input type="hidden" name="resume_to" value="1">
+						<button type="submit" class="button button-primary button-small">
+							✏️ <?php esc_html_e( 'Upravit makra', 'slovnik-a-feedy' ); ?>
+						</button>
+					</form>
+					<!-- Pokračovat na šablonu (krok 2) – jen pokud prošel krok 1 -->
+					<?php if ( $ses['last_step'] >= 2 ) : ?>
+					<form method="post" style="display:inline;margin-left:4px">
+						<?php wp_nonce_field( 'saf_resume', 'saf_resume_nonce' ); ?>
+						<input type="hidden" name="saf_action" value="resume_session">
+						<input type="hidden" name="session_id" value="<?php echo esc_attr( $sid ); ?>">
+						<input type="hidden" name="resume_to" value="2">
+						<button type="submit" class="button button-small">
+							📄 <?php esc_html_e( 'Upravit šablonu', 'slovnik-a-feedy' ); ?>
+						</button>
+					</form>
+					<?php endif; ?>
+					<!-- Smazat relaci -->
+					<form method="post" style="display:inline;margin-left:4px">
+						<?php wp_nonce_field( 'saf_del_session', 'saf_del_ses_nonce' ); ?>
+						<input type="hidden" name="saf_action" value="delete_session">
+						<input type="hidden" name="session_id" value="<?php echo esc_attr( $sid ); ?>">
+						<button type="submit" class="button button-small"
+							style="color:#e94560"
+							onclick="return confirm('<?php esc_attr_e( 'Smazat relaci?', 'slovnik-a-feedy' ); ?>')">
+							🗑
+						</button>
+					</form>
+				</td>
+			</tr>
+			<?php endforeach; ?>
+			</tbody>
+		</table>
+	</div>
+	<?php endif; ?>
+
+	<!-- Historie dokončených importů (sbalené) -->
+	<?php
+	$completed = array_filter( $all_sessions, fn($s) => $s['status'] !== \SlovnikAFeedy\Admin\ImportSessionRegistry::STATUS_ACTIVE );
+	if ( $completed ) :
+	?>
+	<details class="saf-panel" style="cursor:pointer">
+		<summary style="font-weight:600;font-size:14px;padding:4px 0">
+			<span class="dashicons dashicons-list-view"></span>
+			<?php printf( esc_html__( 'Historie importů (%d)', 'slovnik-a-feedy' ), count( $completed ) ); ?>
+		</summary>
+		<table class="wp-list-table widefat striped" style="margin-top:12px">
+			<thead>
+				<tr>
+					<th><?php esc_html_e( 'Datum', 'slovnik-a-feedy' ); ?></th>
+					<th><?php esc_html_e( 'Soubor', 'slovnik-a-feedy' ); ?></th>
+					<th><?php esc_html_e( 'Stream', 'slovnik-a-feedy' ); ?></th>
+					<th><?php esc_html_e( 'Výsledek', 'slovnik-a-feedy' ); ?></th>
+					<th><?php esc_html_e( 'Akce', 'slovnik-a-feedy' ); ?></th>
+				</tr>
+			</thead>
+			<tbody>
+			<?php foreach ( array_reverse( $completed, true ) as $sid => $ses ) : ?>
+			<tr>
+				<td style="font-size:12px"><?php echo esc_html( date_i18n( 'd.m.Y H:i', strtotime( $ses['updated_at'] ) ) ); ?></td>
+				<td><?php echo esc_html( $ses['file_name'] ?: '—' ); ?></td>
+				<td><?php echo esc_html( $ses['stream_name'] ?: '—' ); ?></td>
+				<td>
+					<?php if ( $ses['status'] === 'completed' ) : ?>
+						<?php $r = $ses['result'] ?? []; ?>
+						<span class="saf-badge saf-badge--info">✓ <?php
+							printf( esc_html__( '%d nových, %d aktualizováno', 'slovnik-a-feedy' ),
+								esc_html( $r['created'] ?? 0 ), esc_html( $r['updated'] ?? 0 )
+							);
+						?></span>
+					<?php else : ?>
+						<span class="saf-badge saf-badge--error" title="<?php echo esc_attr( $ses['error_msg'] ?? '' ); ?>">
+							⚠ <?php esc_html_e( 'Chyba', 'slovnik-a-feedy' ); ?>
+						</span>
+					<?php endif; ?>
+				</td>
+				<td>
+					<form method="post" style="display:inline">
+						<?php wp_nonce_field( 'saf_del_session', 'saf_del_ses_nonce' ); ?>
+						<input type="hidden" name="saf_action" value="delete_session">
+						<input type="hidden" name="session_id" value="<?php echo esc_attr( $sid ); ?>">
+						<button type="submit" class="button button-small" style="color:#e94560"
+							onclick="return confirm('Smazat záznam?')">🗑</button>
+					</form>
+				</td>
+			</tr>
+			<?php endforeach; ?>
+			</tbody>
+		</table>
+	</details>
+	<?php endif; ?>
 	<div class="saf-panel">
 		<form method="post" enctype="multipart/form-data">
 			<?php wp_nonce_field( 'saf_import_step_0', 'saf_import_nonce' ); ?>

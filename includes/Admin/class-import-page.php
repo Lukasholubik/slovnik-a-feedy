@@ -73,6 +73,14 @@ final class ImportPage {
 			$this->handle_back_step1();
 			return;
 		}
+		if ( $action === 'resume_session' ) {
+			$this->handle_resume_session();
+			return;
+		}
+		if ( $action === 'delete_session' ) {
+			$this->handle_delete_session();
+			return;
+		}
 
 		// Obecný import nonce.
 		$step         = absint( $_POST['saf_step'] ?? 0 );
@@ -143,6 +151,17 @@ final class ImportPage {
 				'total_rows'   => $total_rows,
 			] );
 
+			// Registruj relaci v seznamu aktivních importů.
+			$file_name = sanitize_text_field( $_FILES['saf_file']['name'] ?? ( $_POST['gsheet_url'] ?? 'Google Sheets' ) );
+			ImportSessionRegistry::register( $session_id, [
+				'last_step'   => 1,
+				'stream_name' => $stream['name'] ?? '',
+				'source_type' => $source_type,
+				'file_name'   => $file_name,
+				'total_rows'  => $total_rows,
+				'macro_count' => count( $columns ),
+			] );
+
 			$this->view_data = array_merge( $this->view_data, [
 				'step'         => 1,
 				'session_id'   => $session_id,
@@ -199,6 +218,12 @@ final class ImportPage {
 		$session['mapping']     = $mapping;
 		$this->save_session( $session_id, $session );
 
+		// Aktualizuj stav v registru.
+		ImportSessionRegistry::update( $session_id, [
+			'last_step'   => 2,
+			'macro_count' => count( $macro_names ),
+		] );
+
 		// Připrav preview row s makro klíči (pro JS builder).
 		$raw_preview   = $session['preview_rows'][0] ?? [];
 		$macro_preview = self::apply_macro_names( $raw_preview, $macro_names );
@@ -211,6 +236,70 @@ final class ImportPage {
 			'template'      => $session['template'] ?? '',
 			'settings'      => Settings::get_all(),
 		] );
+	}
+
+	/** Obnoví relaci z historie – zobrazí poslední dostupný krok. */
+	private function handle_resume_session(): void {
+		if ( ! isset( $_POST['saf_resume_nonce'] )
+			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['saf_resume_nonce'] ) ), 'saf_resume' )
+		) {
+			$this->view_data['error'] = __( 'Neplatný token.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		$session_id = sanitize_key( $_POST['session_id'] ?? '' );
+		$session    = $this->load_session( $session_id );
+		$resume_to  = absint( $_POST['resume_to'] ?? 1 );
+
+		if ( ! $session ) {
+			ImportSessionRegistry::fail( $session_id, 'Relace vypršela (7 dní).' );
+			$this->view_data['error'] = __( 'Relace vypršela (platí 7 dní). Nahraj soubor znovu.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		// Nastav stav v registru.
+		ImportSessionRegistry::update( $session_id, [ 'status' => ImportSessionRegistry::STATUS_ACTIVE ] );
+
+		if ( $resume_to <= 1 ) {
+			// Zobraz krok 1 (makra).
+			$this->view_data = array_merge( $this->view_data, [
+				'step'         => 1,
+				'session_id'   => $session_id,
+				'columns'      => $session['columns']      ?? [],
+				'macro_names'  => $session['macro_names']  ?? [],
+				'auto_mapping' => $session['mapping']      ?? [],
+				'fields'       => Mapper::FIELDS,
+				'stream'       => $session['stream']       ?? [],
+				'preview_rows' => $session['preview_rows'] ?? [],
+				'total_rows'   => $session['total_rows']   ?? 0,
+			] );
+		} else {
+			// Zobraz krok 2 (šablona).
+			$macro_preview = self::apply_macro_names(
+				$session['preview_rows'][0] ?? [],
+				$session['macro_names'] ?? []
+			);
+			$this->view_data = array_merge( $this->view_data, [
+				'step'          => 2,
+				'session_id'    => $session_id,
+				'macro_names'   => $session['macro_names']  ?? [],
+				'macro_preview' => $macro_preview,
+				'template'      => $session['template']     ?? '',
+				'settings'      => Settings::get_all(),
+			] );
+		}
+	}
+
+	/** Smaže relaci z registru. */
+	private function handle_delete_session(): void {
+		if ( ! isset( $_POST['saf_del_ses_nonce'] )
+			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['saf_del_ses_nonce'] ) ), 'saf_del_session' )
+		) {
+			return;
+		}
+		$session_id = sanitize_key( $_POST['session_id'] ?? '' );
+		ImportSessionRegistry::delete( $session_id );
+		$this->delete_session( $session_id );
 	}
 
 	/** Vrátí uživatele na krok 1 (mapování maker) se zachovanou session. */
@@ -405,10 +494,20 @@ final class ImportPage {
 
 		$result = BatchRunner::start( $rows, $config );
 
+		// Zaznamenej výsledek v registru.
+		if ( ! $is_dry_run ) {
+			$stats = $result['stats'] ?? [];
+			ImportSessionRegistry::complete(
+				$session_id,
+				(int) ( $stats['created'] ?? 0 ),
+				(int) ( $stats['updated'] ?? 0 ),
+				(int) ( $stats['skipped'] ?? 0 )
+			);
+		}
+
 		// Vyčisti temp soubor pokud import dokončen (ne async).
-		if ( $result['mode'] === 'sync' ) {
+		if ( $result['mode'] === 'sync' && ! $is_dry_run ) {
 			$this->cleanup_temp_file( $session['file_path'] );
-			$this->delete_session( $session_id );
 		}
 
 		$this->view_data = array_merge( $this->view_data, [
