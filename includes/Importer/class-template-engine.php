@@ -27,6 +27,27 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class TemplateEngine {
 
 	public function render( string $template, array $row ): string {
+		// 0. NEJDŘÍVE: zpracuj makra v Gutenberg block komentářích (JSON context).
+		//    Hodnoty musí být JSON-escapovány – jinak rozbijí JSON strukturu bloku
+		//    a Gutenberg zobrazí "Tento blok obsahuje neplatný obsah."
+		//    Pattern: "{{macro}}" uvnitř <!-- wp:... --> otevíracího komentáře.
+		$template = (string) preg_replace_callback(
+			'/<!--\s*wp:[a-z][^\-].*?-->/s',
+			static function ( array $m ) use ( $row ): string {
+				return (string) preg_replace_callback(
+					'/"(\{\{[\w\-]+\}\})"/',
+					static function ( array $n ) use ( $row ): string {
+						$macro = trim( $n[1], '{}' );
+						$val   = $row[ $macro ] ?? '';
+						// json_encode vrátí "hodnota" (s uvozovkami) – správné JSON.
+						return (string) json_encode( $val, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+					},
+					$m[0]
+				);
+			},
+			$template
+		);
+
 		// 1. Podmíněné bloky {{#if col}}…{{/if}}.
 		$template = (string) preg_replace_callback(
 			'/\{\{#if\s+([\w\-]+)\}\}(.*?)\{\{\/if\}\}/s',
