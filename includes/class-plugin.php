@@ -137,6 +137,64 @@ final class Plugin {
 		// Admin-post handler pro smazání importního profilu.
 		add_action( 'admin_post_saf_delete_profile', [ $this, 'handle_delete_profile' ] );
 
+		// Přesun Elementor/externích floating modalů mimo plugin header (pouze na SAF stránkách).
+		add_action( 'admin_head', static function (): void {
+			$screen = get_current_screen();
+			if ( ! $screen || ! str_contains( $screen->id, 'slovnik-a-feedy' ) ) {
+				return;
+			}
+			?>
+			<script>
+			/* SAF: Elementor/Rank Math floating modals → před .saf-wrap */
+			(function () {
+				function moveForeign() {
+					var wrap = document.querySelector('.saf-wrap');
+					if ( ! wrap || ! wrap.parentNode ) return;
+
+					// Projdi přímé děti <body> – vše co není #wpwrap a není naše wrap přesuň nad wrap.
+					Array.from( document.body.children ).forEach(function (el) {
+						if (
+							el === wrap ||
+							el.id === 'wpwrap' ||
+							el.id === 'wpadminbar' ||
+							el.tagName === 'SCRIPT' ||
+							el.tagName === 'STYLE' ||
+							el.tagName === 'NOSCRIPT'
+						) return;
+
+						// Přesuň před .saf-wrap a resetuj fixed positioning.
+						wrap.parentNode.insertBefore( el, wrap );
+						el.style.cssText += ';position:relative!important;top:auto!important;left:auto!important;z-index:100!important;';
+					});
+
+					// Také přesuň .notice elementy uvnitř .saf-wrap ale mimo panely.
+					var header = wrap.querySelector('.saf-header');
+					if ( header ) {
+						Array.from( wrap.children ).forEach(function (child) {
+							if ( child === header ) return;
+							if (
+								child.classList.contains('notice') ||
+								child.classList.contains('updated') ||
+								child.classList.contains('update-nag')
+							) {
+								wrap.insertBefore( child, header );
+							}
+						});
+					}
+				}
+
+				// Spusť okamžitě + po renderu React komponent (Elementor je async).
+				moveForeign();
+				[100, 400, 800, 1500].forEach(function (t) { setTimeout(moveForeign, t); });
+
+				// MutationObserver pro jakékoli pozdější přidání.
+				new MutationObserver(function () { setTimeout(moveForeign, 50); })
+					.observe(document.body, { childList: true, subtree: false });
+			}());
+			</script>
+			<?php
+		} );
+
 		// Admin UI.
 		if ( is_admin() ) {
 			$admin_menu = new Admin\AdminMenu();
