@@ -312,10 +312,11 @@ final class ImportPage {
 		}
 
 		$this->view_data = array_merge( $this->view_data, [
-			'step'        => 3,
-			'result'      => $result,
-			'is_dry_run'  => $is_dry_run,
-			'total_rows'  => count( $rows ),
+			'step'       => 3,
+			'result'     => $result,
+			'is_dry_run' => $is_dry_run,
+			'total_rows' => count( $rows ),
+			'stream_cpt' => $session['stream']['cpt'] ?? 'glossary',
 		] );
 	}
 

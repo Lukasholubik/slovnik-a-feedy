@@ -472,11 +472,12 @@ $step_labels = [
 	<?php
 	// ── KROK 3 – Výsledky ─────────────────────────────────────────────────────
 	elseif ( $step === 3 ) :
-		$result     = $view_data['result']    ?? [];
-		$is_dry_run = $view_data['is_dry_run'] ?? false;
-		$total_rows_result = $view_data['total_rows'] ?? 0;
-		$stats      = $result['stats']        ?? null;
-		$batch_id   = $result['batch_id']     ?? null;
+		$result            = $view_data['result']     ?? [];
+		$is_dry_run        = $view_data['is_dry_run']  ?? false;
+		$total_rows_result = $view_data['total_rows']  ?? 0;
+		$stats             = $result['stats']          ?? null;
+		$batch_id          = $result['batch_id']       ?? null;
+		$stream_cpt        = $view_data['stream_cpt']  ?? 'glossary';
 	?>
 	<div class="saf-panel">
 		<?php if ( $is_dry_run ) : ?>
@@ -513,8 +514,8 @@ $step_labels = [
 			<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-import' ) ); ?>" class="button button-primary">
 				<?php esc_html_e( '+ Nový import', 'slovnik-a-feedy' ); ?>
 			</a>
-			<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=glossary' ) ); ?>" class="button">
-				<?php esc_html_e( 'Zobrazit pojmy', 'slovnik-a-feedy' ); ?>
+			<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=' . $stream_cpt ) ); ?>" class="button">
+				<?php esc_html_e( 'Zobrazit importované záznamy', 'slovnik-a-feedy' ); ?>
 			</a>
 			<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-logy&context=import' ) ); ?>" class="button">
 				<?php esc_html_e( 'Zobrazit logy', 'slovnik-a-feedy' ); ?>

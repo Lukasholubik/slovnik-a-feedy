@@ -37,7 +37,16 @@ final class StreamManager {
 
 	/** @return array<string, array> */
 	public static function get_all(): array {
-		return (array) get_option( self::OPTION, [] );
+		$streams = (array) get_option( self::OPTION, [] );
+
+		// Pokud žádné streamy neexistují, vytvoř výchozí automaticky.
+		// (Nastane když byl plugin aktivní před zavedením StreamManageru.)
+		if ( empty( $streams ) ) {
+			static::create_default();
+			$streams = (array) get_option( self::OPTION, [] );
+		}
+
+		return $streams;
 	}
 
 	/** @return array|null */
