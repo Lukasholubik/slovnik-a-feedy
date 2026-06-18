@@ -70,18 +70,66 @@ $step_labels = [
 			<?php wp_nonce_field( 'saf_import_step_0', 'saf_import_nonce' ); ?>
 			<input type="hidden" name="saf_step" value="0">
 
-			<!-- Výběr streamu (jen pokud je víc než jeden) -->
-			<?php if ( count( $stream_options ) > 1 ) : ?>
+			<!-- Výběr streamu – vždy viditelný -->
 			<div class="saf-form-row">
-				<label><strong><?php esc_html_e( 'Importovat do streamu:', 'slovnik-a-feedy' ); ?></strong></label>
+				<label><strong><?php esc_html_e( 'Importovat do streamu (CPT):', 'slovnik-a-feedy' ); ?></strong></label>
 				<select name="stream_id" class="regular-text">
 					<?php foreach ( $stream_options as $sid => $sname ) : ?>
 					<option value="<?php echo esc_attr( $sid ); ?>"><?php echo esc_html( $sname ); ?></option>
 					<?php endforeach; ?>
 				</select>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-streamy' ) ); ?>" style="margin-left:8px;font-size:12px">
+					<?php esc_html_e( '+ Přidat stream', 'slovnik-a-feedy' ); ?>
+				</a>
 			</div>
-			<?php else : ?>
-			<input type="hidden" name="stream_id" value="<?php echo esc_attr( array_key_first( $stream_options ) ); ?>">
+
+			<!-- Import presety – uložené nastavení importu -->
+			<?php
+			$presets = \SlovnikAFeedy\Admin\Settings::get_import_presets();
+			if ( $presets ) :
+			?>
+			<div class="saf-form-row">
+				<label><strong><?php esc_html_e( 'Načíst uložený preset importu:', 'slovnik-a-feedy' ); ?></strong></label>
+				<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+					<select name="preset_id" id="saf-preset-select" class="regular-text">
+						<option value=""><?php esc_html_e( '— nový import —', 'slovnik-a-feedy' ); ?></option>
+						<?php foreach ( $presets as $pid => $preset ) : ?>
+						<option value="<?php echo esc_attr( $pid ); ?>">
+							<?php echo esc_html( $preset['name'] ); ?>
+							<?php if ( ! empty( $preset['stream_name'] ) ) : ?>
+							(<?php echo esc_html( $preset['stream_name'] ); ?>)
+							<?php endif; ?>
+						</option>
+						<?php endforeach; ?>
+					</select>
+					<button type="button" id="saf-delete-preset" class="button button-small" style="color:#e94560;display:none"
+						title="<?php esc_attr_e( 'Smazat preset', 'slovnik-a-feedy' ); ?>">
+						✕ <?php esc_html_e( 'Smazat preset', 'slovnik-a-feedy' ); ?>
+					</button>
+				</div>
+				<p class="description"><?php esc_html_e( 'Preset uloží nastavení importu (stream, makra, šablona) pro opakované použití.', 'slovnik-a-feedy' ); ?></p>
+			</div>
+			<script>
+			(function(){
+				var sel = document.getElementById('saf-preset-select');
+				var del = document.getElementById('saf-delete-preset');
+				if(sel && del) {
+					sel.addEventListener('change', function(){
+						del.style.display = sel.value ? '' : 'none';
+					});
+					del.addEventListener('click', function(){
+						if(!confirm('<?php esc_attr_e( 'Smazat preset?', 'slovnik-a-feedy' ); ?>')) return;
+						var f = document.createElement('form');
+						f.method = 'post';
+						f.innerHTML = '<?php echo wp_nonce_field('saf_delete_preset','saf_del_nonce',true,false); ?>'
+							+ '<input name="saf_action" value="delete_preset">'
+							+ '<input name="preset_id" value="'+sel.value+'">';
+						document.body.appendChild(f);
+						f.submit();
+					});
+				}
+			})();
+			</script>
 			<?php endif; ?>
 
 			<!-- Typ zdroje -->
@@ -518,9 +566,41 @@ $step_labels = [
 				<?php esc_html_e( 'Zobrazit importované záznamy', 'slovnik-a-feedy' ); ?>
 			</a>
 			<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-logy&context=import' ) ); ?>" class="button">
-				<?php esc_html_e( 'Zobrazit logy', 'slovnik-a-feedy' ); ?>
+				<?php esc_html_e( 'Logy', 'slovnik-a-feedy' ); ?>
 			</a>
 		</div>
+
+		<!-- Uložit jako preset pro příští import -->
+		<?php
+		$sfp = $view_data['session_for_preset'] ?? [];
+		if ( ! $is_dry_run && ! empty( $sfp ) ) :
+		?>
+		<div style="margin-top:20px;padding:14px;background:#f8f8ff;border:1px solid #b3c6f0;border-radius:4px">
+			<strong><?php esc_html_e( 'Uložit jako preset pro příští import?', 'slovnik-a-feedy' ); ?></strong>
+			<p class="description" style="margin-bottom:10px">
+				<?php esc_html_e( 'Preset uloží stream, makra a šablonu – příští import spustíš jedním kliknutím.', 'slovnik-a-feedy' ); ?>
+			</p>
+			<form method="post" style="display:flex;gap:8px;align-items:center">
+				<?php wp_nonce_field( 'saf_save_preset', 'saf_preset_nonce' ); ?>
+				<input type="hidden" name="saf_action" value="save_preset">
+				<?php foreach ( $sfp as $key => $val ) :
+					if ( is_array( $val ) ) :
+						foreach ( $val as $k => $v ) :
+				?>
+				<input type="hidden" name="preset_data[<?php echo esc_attr($key); ?>][<?php echo esc_attr($k); ?>]" value="<?php echo esc_attr($v); ?>">
+				<?php   endforeach;
+					else :
+				?>
+				<input type="hidden" name="preset_data[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr($val); ?>">
+				<?php   endif;
+				endforeach; ?>
+				<input type="text" name="preset_name" class="regular-text"
+					placeholder="<?php esc_attr_e( 'Název presetu (např. Slovníček 2024)', 'slovnik-a-feedy' ); ?>"
+					required>
+				<button type="submit" class="button button-primary"><?php esc_html_e( 'Uložit preset', 'slovnik-a-feedy' ); ?></button>
+			</form>
+		</div>
+		<?php endif; ?>
 	</div>
 
 	<?php endif; ?>

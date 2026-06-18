@@ -56,6 +56,15 @@ final class AdminMenu {
 
 		add_submenu_page(
 			self::MENU_SLUG,
+			__( 'Šablony', 'slovnik-a-feedy' ),
+			__( 'Šablony', 'slovnik-a-feedy' ),
+			self::CAP,
+			'slovnik-a-feedy-sablony',
+			[ $this, 'render_templates' ]
+		);
+
+		add_submenu_page(
+			self::MENU_SLUG,
 			__( 'Streamy', 'slovnik-a-feedy' ),
 			__( 'Streamy', 'slovnik-a-feedy' ),
 			self::CAP,
@@ -128,6 +137,39 @@ final class AdminMenu {
 			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
 		}
 		require SAF_DIR . 'includes/Admin/views/dashboard.php';
+	}
+
+	public function render_templates(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
+		}
+
+		$notice = '';
+		$error  = '';
+
+		// Smazání šablony.
+		if ( isset( $_GET['action'], $_GET['tpl'] ) && $_GET['action'] === 'delete' ) {
+			$tpl_id = absint( $_GET['tpl'] );
+			if ( wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'saf_delete_tpl_' . $tpl_id ) ) {
+				wp_delete_post( $tpl_id, true );
+				$notice = __( 'Šablona byla smazána.', 'slovnik-a-feedy' );
+			} else {
+				$error = __( 'Neplatný token.', 'slovnik-a-feedy' );
+			}
+		}
+
+		// Smazání presetu.
+		if ( isset( $_GET['action'], $_GET['preset'] ) && $_GET['action'] === 'delete_preset' ) {
+			$pid = sanitize_key( $_GET['preset'] );
+			if ( wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'saf_del_preset_' . $pid ) ) {
+				Settings::delete_import_preset( $pid );
+				$notice = __( 'Preset byl smazán.', 'slovnik-a-feedy' );
+			} else {
+				$error = __( 'Neplatný token.', 'slovnik-a-feedy' );
+			}
+		}
+
+		require SAF_DIR . 'includes/Admin/views/templates.php';
 	}
 
 	public function render_analytics(): void {

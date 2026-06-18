@@ -79,7 +79,43 @@ final class Settings {
 	}
 
 	// -------------------------------------------------------------------------
-	// Import profily.
+	// Import presety (kompletní uložené nastavení importu).
+
+	/**
+	 * Preset = stream + macro_names + template_id + mapping uložené dohromady.
+	 *
+	 * @return array<string, array{name:string, stream_id:string, stream_name:string, macro_names:array, template_id:int, mapping:array}>
+	 */
+	public static function get_import_presets(): array {
+		return (array) get_option( 'saf_import_presets', [] );
+	}
+
+	/**
+	 * Uloží import preset.
+	 *
+	 * @param array{name:string, stream_id:string, stream_name:string, macro_names:array, template_id:int, mapping:array} $preset
+	 */
+	public static function save_import_preset( string $id, array $preset ): void {
+		$presets        = static::get_import_presets();
+		$presets[ $id ] = [
+			'name'        => sanitize_text_field( $preset['name'] ?? '' ),
+			'stream_id'   => sanitize_key( $preset['stream_id'] ?? '' ),
+			'stream_name' => sanitize_text_field( $preset['stream_name'] ?? '' ),
+			'macro_names' => array_map( 'sanitize_key', (array) ( $preset['macro_names'] ?? [] ) ),
+			'template_id' => absint( $preset['template_id'] ?? 0 ),
+			'mapping'     => array_map( 'sanitize_key', (array) ( $preset['mapping'] ?? [] ) ),
+		];
+		update_option( 'saf_import_presets', $presets, false );
+	}
+
+	public static function delete_import_preset( string $id ): void {
+		$presets = static::get_import_presets();
+		unset( $presets[ $id ] );
+		update_option( 'saf_import_presets', $presets, false );
+	}
+
+	// -------------------------------------------------------------------------
+	// Import profily (starší – pro zpětnou kompatibilitu).
 
 	/**
 	 * Vrátí všechny uložené profily importu.

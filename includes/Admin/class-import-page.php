@@ -28,7 +28,7 @@ final class ImportPage {
 
 	public const PAGE_SLUG       = 'slovnik-a-feedy-import';
 	public const CAP             = AdminMenu::CAP;
-	private const TRANSIENT_TTL  = HOUR_IN_SECONDS;
+	private const TRANSIENT_TTL  = WEEK_IN_SECONDS; // 7 dní – session přežije přestávku
 	private const TRANSIENT_KEY  = 'saf_import_session_';
 	private const MAX_FILE_SIZE  = 10 * 1024 * 1024; // 10 MB
 
@@ -59,6 +59,14 @@ final class ImportPage {
 		$action = sanitize_key( $_POST['saf_action'] ?? '' );
 		if ( $action === 'create_template' ) {
 			$this->handle_create_template();
+			return;
+		}
+		if ( $action === 'delete_preset' ) {
+			$this->handle_delete_preset();
+			return;
+		}
+		if ( $action === 'save_preset' ) {
+			$this->handle_save_preset();
 			return;
 		}
 
@@ -201,6 +209,52 @@ final class ImportPage {
 		] );
 	}
 
+	/** Uložení import presetu. */
+	private function handle_save_preset(): void {
+		if ( ! isset( $_POST['saf_preset_nonce'] )
+			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['saf_preset_nonce'] ) ), 'saf_save_preset' )
+			|| ! current_user_can( self::CAP )
+		) {
+			$this->view_data['error'] = __( 'Neplatný token.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		$name = sanitize_text_field( wp_unslash( $_POST['preset_name'] ?? '' ) );
+		$data = $_POST['preset_data'] ?? [];
+
+		$preset = [
+			'name'        => $name,
+			'stream_id'   => sanitize_key( $data['stream_id'] ?? '' ),
+			'stream_name' => sanitize_text_field( wp_unslash( $data['stream_name'] ?? '' ) ),
+			'template_id' => absint( $data['template_id'] ?? 0 ),
+			'macro_names' => [],
+			'mapping'     => [],
+		];
+
+		// Sanitizuj macro_names.
+		foreach ( (array) ( $data['macro_names'] ?? [] ) as $col => $macro ) {
+			$preset['macro_names'][ sanitize_text_field( wp_unslash( $col ) ) ] = sanitize_key( $macro );
+		}
+		foreach ( (array) ( $data['mapping'] ?? [] ) as $col => $field ) {
+			$preset['mapping'][ sanitize_text_field( wp_unslash( $col ) ) ] = sanitize_key( $field );
+		}
+
+		Settings::save_import_preset( sanitize_key( uniqid( 'preset_', true ) ), $preset );
+		$this->view_data['notice'] = __( 'Preset byl uložen. Najdeš ho při příštím importu.', 'slovnik-a-feedy' );
+	}
+
+	/** Smazání import presetu. */
+	private function handle_delete_preset(): void {
+		if ( ! isset( $_POST['saf_del_nonce'] )
+			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['saf_del_nonce'] ) ), 'saf_delete_preset' )
+			|| ! current_user_can( self::CAP )
+		) {
+			$this->view_data['error'] = __( 'Neplatný token.', 'slovnik-a-feedy' );
+			return;
+		}
+		Settings::delete_import_preset( sanitize_key( $_POST['preset_id'] ?? '' ) );
+	}
+
 	/** Vytvoření nové šablony + redirect do Gutenbergu. */
 	private function handle_create_template(): void {
 		if ( ! isset( $_POST['saf_tpl_nonce'] )
@@ -317,6 +371,13 @@ final class ImportPage {
 			'is_dry_run' => $is_dry_run,
 			'total_rows' => count( $rows ),
 			'stream_cpt' => $session['stream']['cpt'] ?? 'glossary',
+			'session_for_preset' => [
+				'stream_id'   => $session['stream']['id']   ?? '',
+				'stream_name' => $session['stream']['name'] ?? '',
+				'macro_names' => $session['macro_names'] ?? [],
+				'template_id' => $template_post_id,
+				'mapping'     => $session['mapping'] ?? [],
+			],
 		] );
 	}
 
