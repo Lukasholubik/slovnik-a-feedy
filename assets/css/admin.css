@@ -95,6 +95,30 @@
 .saf-footer { text-align: center; font-size: 12px; color: #999; margin-top: 20px; padding: 10px; }
 .saf-footer a { color: #e94560; text-decoration: none; }
 
+/* ── Analytics ── */
+.saf-analytics-filters { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px; align-items:center; }
+.saf-filter-group { display:flex; align-items:center; gap:6px; }
+.saf-filter-group span { font-size:12px; color:#666; }
+.saf-filter-btn { padding:4px 10px; border:1px solid #ddd; border-radius:3px; font-size:12px; text-decoration:none; color:#444; background:#fff; }
+.saf-filter-btn:hover { border-color:#0073aa; color:#0073aa; }
+.saf-filter-btn--active { background:#1a1a2e; border-color:#1a1a2e; color:#fff !important; }
+
+.saf-card__trend { display:block; font-size:11px; margin-top:4px; }
+.saf-trend--up { color:#2d7738; }
+.saf-trend--down { color:#e94560; }
+
+.saf-panel--chart { margin-bottom:16px; }
+.saf-chart-wrap { height:200px; margin-top:12px; }
+
+.saf-panel-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.saf-panel-header .saf-panel__title { margin-bottom:0; border-bottom:none; padding-bottom:0; }
+.saf-sort-links { display:flex; align-items:center; gap:6px; }
+.saf-sort-btn { font-size:12px; padding:3px 8px; border:1px solid #ddd; border-radius:3px; text-decoration:none; color:#444; }
+.saf-sort-btn--active { background:#f0f0f0; font-weight:600; color:#1a1a2e; }
+
+.saf-analytics-table .saf-num-col { text-align:right; }
+.saf-url-slug { font-size:11px; color:#999; font-family:monospace; }
+
 /* ── Import wizard ── */
 .saf-wizard-steps { display:flex; gap:0; margin-bottom:20px; border:1px solid #e0e0e0; border-radius:6px; overflow:hidden; background:#fff; }
 .saf-wizard-step { flex:1; padding:12px 16px; display:flex; align-items:center; gap:8px; font-size:13px; color:#888; border-right:1px solid #e0e0e0; }

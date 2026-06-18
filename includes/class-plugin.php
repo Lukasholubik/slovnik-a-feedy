@@ -87,6 +87,9 @@ final class Plugin {
 		require_once SAF_DIR . 'includes/Support/class-crocoblock-compat.php';
 		Support\CrococblockCompat::register_hooks();
 
+		// Analytics – tracking zobrazení a kliknutí.
+		Analytics\Tracker::register_hooks();
+
 		// Batch import Cron hook.
 		Importer\BatchRunner::register_hooks();
 

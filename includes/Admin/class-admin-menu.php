@@ -47,6 +47,15 @@ final class AdminMenu {
 
 		add_submenu_page(
 			self::MENU_SLUG,
+			__( 'Analytics', 'slovnik-a-feedy' ),
+			__( 'Analytics', 'slovnik-a-feedy' ),
+			self::CAP,
+			AnalyticsPage::PAGE_SLUG,
+			[ $this, 'render_analytics' ]
+		);
+
+		add_submenu_page(
+			self::MENU_SLUG,
 			__( 'Streamy', 'slovnik-a-feedy' ),
 			__( 'Streamy', 'slovnik-a-feedy' ),
 			self::CAP,
@@ -94,6 +103,11 @@ final class AdminMenu {
 		if ( ! str_contains( $hook, self::MENU_SLUG ) ) {
 			return;
 		}
+		// Analytics stránka si enqueue řeší sama (Chart.js).
+		if ( str_contains( $hook, AnalyticsPage::PAGE_SLUG ) ) {
+			( new AnalyticsPage() )->enqueue_assets( $hook );
+			return;
+		}
 		wp_enqueue_style( 'saf-admin', SAF_URL . 'assets/css/admin.css', [], SAF_VERSION );
 	}
 
@@ -102,6 +116,13 @@ final class AdminMenu {
 			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
 		}
 		require SAF_DIR . 'includes/Admin/views/dashboard.php';
+	}
+
+	public function render_analytics(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
+		}
+		( new AnalyticsPage() )->render();
 	}
 
 	public function render_streams(): void {

@@ -33,6 +33,9 @@ final class Activator {
 		add_option( 'saf_default_status', 'publish' );
 		add_option( 'saf_gsheet_url',     '' );
 
+		// DB tabulky.
+		Analytics\Tracker::create_table();
+
 		// DB tabulka pro logy.
 		Support\Logger::create_table();
 
