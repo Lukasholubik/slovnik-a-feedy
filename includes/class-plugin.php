@@ -56,6 +56,9 @@ final class Plugin {
 
 		// Registrace CPT a taxonomií – priorita 1 (před ostatními pluginy na init).
 		add_action( 'init', static function (): void {
+			// Import šablony CPT.
+			TemplateManager::register();
+
 			foreach ( StreamManager::get_all() as $stream ) {
 				if ( ! ( $stream['active'] ?? true ) ) {
 					continue;

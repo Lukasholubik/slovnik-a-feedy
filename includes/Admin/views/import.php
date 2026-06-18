@@ -277,165 +277,197 @@ $step_labels = [
 	</div>
 
 	<?php
-	// ── KROK 2 – Vizuální template builder ───────────────────────────────────
+	// ── KROK 2 – Výběr šablony (Gutenberg) ───────────────────────────────────
 	elseif ( $step === 2 ) :
 		$macro_names   = $view_data['macro_names']   ?? [];
 		$macro_preview = $view_data['macro_preview'] ?? [];
-		$template      = $view_data['template']      ?? '';
 		$settings      = $view_data['settings']      ?? [];
 
-		// Předej preview data do JS.
-		wp_localize_script( 'saf-template-builder', 'safPreviewRow', $macro_preview );
-
-		$block_btns = [
-			'heading-2'    => [ 'label' => 'Nadpis H2',         'color' => '#1a1a2e' ],
-			'heading-3'    => [ 'label' => 'Nadpis H3',         'color' => '#1a1a2e' ],
-			'heading-4'    => [ 'label' => 'Nadpis H4',         'color' => '#1a1a2e' ],
-			'paragraph'    => [ 'label' => 'Odstavec',          'color' => '#0073aa' ],
-			'quote'        => [ 'label' => 'Citace',            'color' => '#0073aa' ],
-			'list'         => [ 'label' => 'Odrážky (• seznam)','color' => '#2d7738' ],
-			'list-num'     => [ 'label' => 'Číslování (1. 2. .)','color' => '#2d7738' ],
-			'separator'    => [ 'label' => 'Oddělovač ——',      'color' => '#888' ],
-			'preformatted' => [ 'label' => 'Kód / PRE',         'color' => '#888' ],
-		];
+		$templates     = \SlovnikAFeedy\TemplateManager::get_all();
+		$template_id   = (int) get_option( 'saf_last_template_id', 0 );
 	?>
 
-	<div class="saf-builder-layout">
+	<div class="saf-columns">
 
-		<!-- ── Levý panel: makra + bloky ─────────────────────────── -->
-		<div class="saf-builder-sidebar">
+		<!-- Výběr / vytvoření šablony -->
+		<div class="saf-panel">
+			<h2 class="saf-panel__title">
+				<?php esc_html_e( 'Šablona obsahu', 'slovnik-a-feedy' ); ?>
+			</h2>
+			<p class="saf-panel__desc">
+				<?php esc_html_e( 'Šablonu vytváříš v normálním WordPress editoru (Gutenberg). Do bloků píšeš makra {{makro}} místo textu – plugin je při importu nahradí daty z tabulky.', 'slovnik-a-feedy' ); ?>
+			</p>
 
-			<div class="saf-builder-section">
-				<h3 class="saf-builder-section__title">
-					1️⃣ <?php esc_html_e( 'Klikni na makro', 'slovnik-a-feedy' ); ?>
-				</h3>
-				<p class="saf-builder-section__hint">
-					<?php esc_html_e( 'Vyber sloupec který chceš vložit do obsahu.', 'slovnik-a-feedy' ); ?>
+			<!-- Krok A: vyber nebo vytvoř šablonu -->
+			<div class="saf-template-picker">
+				<?php if ( $templates ) : ?>
+				<div class="saf-form-row" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+					<label><strong><?php esc_html_e( 'Existující šablona:', 'slovnik-a-feedy' ); ?></strong></label>
+					<select id="saf-template-select" style="min-width:250px">
+						<option value=""><?php esc_html_e( '— vyber šablonu —', 'slovnik-a-feedy' ); ?></option>
+						<?php foreach ( $templates as $tid => $ttitle ) : ?>
+						<option value="<?php echo esc_attr( $tid ); ?>"
+							data-edit="<?php echo esc_attr( \SlovnikAFeedy\TemplateManager::get_edit_url( $tid ) ); ?>"
+							<?php selected( $template_id, $tid ); ?>>
+							<?php echo esc_html( $ttitle ); ?>
+						</option>
+						<?php endforeach; ?>
+					</select>
+					<a id="saf-edit-template-btn" href="#" target="_blank" class="button" style="display:none">
+						<?php esc_html_e( '✏️ Otevřít v editoru →', 'slovnik-a-feedy' ); ?>
+					</a>
+				</div>
+				<p class="description" style="margin-top:4px">
+					<?php esc_html_e( 'Uprav šablonu v editoru, ulož a vrať se sem. Tlačítko "Spustit import" použije aktuální obsah šablony.', 'slovnik-a-feedy' ); ?>
 				</p>
-				<div class="saf-macro-chips">
+				<div class="saf-builder-divider" style="margin:14px 0"></div>
+				<?php endif; ?>
+
+				<!-- Vytvoření nové šablony -->
+				<form method="post" id="saf-new-template-form" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+					<?php wp_nonce_field( 'saf_create_template', 'saf_tpl_nonce' ); ?>
+					<input type="hidden" name="saf_action" value="create_template">
+					<input type="hidden" name="session_id" value="<?php echo esc_attr( $session_id ); ?>">
+					<label><strong><?php esc_html_e( $templates ? 'Nebo vytvoř novou:' : 'Vytvoř šablonu:', 'slovnik-a-feedy' ); ?></strong></label>
+					<input type="text" name="template_title"
+						placeholder="<?php esc_attr_e( 'Název šablony', 'slovnik-a-feedy' ); ?>"
+						class="regular-text"
+						value="Šablona slovníčku">
+					<button type="submit" class="button button-primary">
+						<?php esc_html_e( '+ Vytvořit a otevřít v editoru →', 'slovnik-a-feedy' ); ?>
+					</button>
+				</form>
+			</div>
+
+			<!-- Dostupná makra -->
+			<?php if ( $macro_names ) : ?>
+			<div style="margin-top:20px">
+				<strong><?php esc_html_e( 'Dostupná makra – zkopíruj do editoru:', 'slovnik-a-feedy' ); ?></strong>
+				<p class="description" style="margin-bottom:8px">
+					<?php esc_html_e( 'Klikni na makro pro zkopírování. Vlož ho přímo do bloku v Gutenbergu.', 'slovnik-a-feedy' ); ?>
+				</p>
+				<div class="saf-macro-chips-inline">
 					<?php foreach ( $macro_names as $col => $macro ) : ?>
 					<button type="button"
-						class="saf-macro-chip"
-						data-macro="<?php echo esc_attr( $macro ); ?>"
+						class="saf-macro-chip-inline"
+						onclick="navigator.clipboard.writeText('{{<?php echo esc_js( $macro ); ?>}}').then(function(){var el=this;el.classList.add('copied');setTimeout(function(){el.classList.remove('copied')},1200)}.bind(this))"
 						title="<?php echo esc_attr( $col ); ?>">
-						<span class="saf-macro-chip__brace">{{</span><?php echo esc_html( $macro ); ?><span class="saf-macro-chip__brace">}}</span>
-						<?php if ( $col !== $macro ) : ?>
-						<small class="saf-macro-chip__orig"><?php echo esc_html( mb_strimwidth( $col, 0, 18, '…' ) ); ?></small>
-						<?php endif; ?>
+						<code>{{<?php echo esc_html( $macro ); ?>}}</code>
+						<span class="saf-chip-col"><?php echo esc_html( mb_strimwidth( $col, 0, 20, '…' ) ); ?></span>
+						<span class="saf-chip-copy">📋</span>
+						<span class="saf-chip-copied">✓ Zkopírováno</span>
 					</button>
 					<?php endforeach; ?>
 				</div>
-			</div>
-
-			<div class="saf-builder-section">
-				<h3 class="saf-builder-section__title">
-					2️⃣ <?php esc_html_e( 'Zvol typ bloku', 'slovnik-a-feedy' ); ?>
-				</h3>
-				<p class="saf-builder-section__hint" id="saf-builder-info">
-					<?php esc_html_e( 'Nejdřív klikni na makro výše, pak na typ bloku.', 'slovnik-a-feedy' ); ?>
+				<p class="description" style="margin-top:8px">
+					💡 <strong><?php esc_html_e( 'H1 = Titulek stránky', 'slovnik-a-feedy' ); ?></strong> –
+					<?php esc_html_e( 'mapuješ přes "Název pojmu (title)" v kroku 1. V obsahu začínáš od H2.', 'slovnik-a-feedy' ); ?>
 				</p>
-				<div class="saf-block-palette">
-					<?php foreach ( $block_btns as $block_key => $btn ) : ?>
-					<button type="button"
-						class="saf-block-btn"
-						data-block="<?php echo esc_attr( $block_key ); ?>"
-						data-label="<?php echo esc_attr( $btn['label'] ); ?>"
-						style="border-left-color:<?php echo esc_attr( $btn['color'] ); ?>"
-						disabled>
-						<?php echo esc_html( $btn['label'] ); ?>
-					</button>
-					<?php endforeach; ?>
-				</div>
-
-				<div class="saf-builder-divider"></div>
-				<p class="saf-builder-section__hint"><?php esc_html_e( 'Nebo vlož jen makro bez bloku:', 'slovnik-a-feedy' ); ?></p>
-				<button type="button" class="saf-insert-raw button" disabled>
-					<?php esc_html_e( '+ Vložit {{makro}} na pozici kurzoru', 'slovnik-a-feedy' ); ?>
-				</button>
 			</div>
+			<?php endif; ?>
+		</div>
 
-		</div><!-- /.saf-builder-sidebar -->
-
-		<!-- ── Střed: template editor ────────────────────────────── -->
-		<div class="saf-builder-editor">
+		<!-- Spuštění importu -->
+		<div class="saf-panel">
+			<h2 class="saf-panel__title"><?php esc_html_e( 'Nastavení a spuštění', 'slovnik-a-feedy' ); ?></h2>
 
 			<form method="post" id="saf-import-form">
 				<?php wp_nonce_field( 'saf_import_step_2', 'saf_import_nonce' ); ?>
 				<input type="hidden" name="saf_step" value="2">
 				<input type="hidden" name="session_id" value="<?php echo esc_attr( $session_id ); ?>">
+				<input type="hidden" name="template_id" id="saf-template-id-field"
+					value="<?php echo esc_attr( $template_id ); ?>">
 
-				<div class="saf-editor-toolbar">
-					<h3 class="saf-builder-section__title" style="margin:0">
-						3️⃣ <?php esc_html_e( 'Šablona obsahu', 'slovnik-a-feedy' ); ?>
-					</h3>
-					<div style="display:flex;gap:6px">
-						<button type="button" id="saf-clear-template" class="button button-small">
-							<?php esc_html_e( '✕ Smazat vše', 'slovnik-a-feedy' ); ?>
-						</button>
-					</div>
-				</div>
+				<table class="form-table" style="margin-top:0">
+					<tr>
+						<th><label><?php esc_html_e( 'Šablona', 'slovnik-a-feedy' ); ?></label></th>
+						<td>
+							<?php if ( $template_id && isset( $templates[ $template_id ] ) ) : ?>
+							<strong><?php echo esc_html( $templates[ $template_id ] ); ?></strong>
+							<?php else : ?>
+							<em style="color:#e94560"><?php esc_html_e( '⚠ Vyber nebo vytvoř šablonu vlevo.', 'slovnik-a-feedy' ); ?></em>
+							<?php endif; ?>
+						</td>
+					</tr>
+					<tr>
+						<th><label><?php esc_html_e( 'Status příspěvků', 'slovnik-a-feedy' ); ?></label></th>
+						<td>
+							<select name="default_status">
+								<option value="publish" <?php selected( $settings['default_status'] ?? 'publish', 'publish' ); ?>><?php esc_html_e( 'Publikováno', 'slovnik-a-feedy' ); ?></option>
+								<option value="draft"   <?php selected( $settings['default_status'] ?? 'publish', 'draft' ); ?>><?php esc_html_e( 'Koncept', 'slovnik-a-feedy' ); ?></option>
+							</select>
+						</td>
+					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Rank Math SEO', 'slovnik-a-feedy' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="force_overwrite" value="1">
+								<?php esc_html_e( 'Přepsat i ručně zadané SEO hodnoty', 'slovnik-a-feedy' ); ?>
+							</label>
+						</td>
+					</tr>
+				</table>
 
-				<textarea name="template" id="saf-template" rows="18" class="large-text code saf-template-area"
-					placeholder="<?php esc_attr_e( 'Klikni na makro vlevo + typ bloku → blok se přidá sem automaticky...', 'slovnik-a-feedy' ); ?>"
-				><?php echo esc_textarea( $template ); ?></textarea>
-
-				<div class="saf-editor-options">
-					<label>
-						<?php esc_html_e( 'Status:', 'slovnik-a-feedy' ); ?>
-						<select name="default_status">
-							<option value="publish" <?php selected( $settings['default_status'] ?? 'publish', 'publish' ); ?>><?php esc_html_e( 'Publikováno', 'slovnik-a-feedy' ); ?></option>
-							<option value="draft"   <?php selected( $settings['default_status'] ?? 'publish', 'draft' ); ?>><?php esc_html_e( 'Koncept', 'slovnik-a-feedy' ); ?></option>
-						</select>
-					</label>
-					<label>
-						<input type="checkbox" name="force_overwrite" value="1">
-						<?php esc_html_e( 'Přepsat SEO', 'slovnik-a-feedy' ); ?>
-					</label>
-				</div>
+				<!-- Náhled hodnot z 1. řádku -->
+				<?php if ( $macro_preview ) : ?>
+				<details style="margin-bottom:16px">
+					<summary style="cursor:pointer;font-size:13px;color:#0073aa">
+						<?php esc_html_e( 'Hodnoty z 1. řádku (ověř mapování)', 'slovnik-a-feedy' ); ?>
+					</summary>
+					<table class="widefat" style="margin-top:8px;font-size:12px">
+						<tbody>
+						<?php foreach ( $macro_preview as $macro => $val ) : ?>
+							<?php if ( trim( $val ) === '' ) continue; ?>
+							<tr>
+								<td style="width:35%;color:#0073aa"><code>{{<?php echo esc_html( $macro ); ?>}}</code></td>
+								<td><?php echo esc_html( mb_strimwidth( $val, 0, 80, '…' ) ); ?></td>
+							</tr>
+						<?php endforeach; ?>
+						</tbody>
+					</table>
+				</details>
+				<?php endif; ?>
 
 				<div class="saf-import-actions">
-					<button type="submit" name="dry_run" value="1" class="button button-large">
-						<?php esc_html_e( '👁 Dry-run', 'slovnik-a-feedy' ); ?>
+					<button type="submit" name="dry_run" value="1" class="button button-large"
+						<?php echo ! $template_id ? 'disabled' : ''; ?>>
+						<?php esc_html_e( '👁 Dry-run (náhled bez zápisu)', 'slovnik-a-feedy' ); ?>
 					</button>
-					<button type="submit" class="button button-primary button-large">
+					<button type="submit" class="button button-primary button-large"
+						<?php echo ! $template_id ? 'disabled' : ''; ?>>
 						<?php esc_html_e( '▶ Spustit import', 'slovnik-a-feedy' ); ?>
 					</button>
+					<?php if ( ! $template_id ) : ?>
+					<span style="color:#e94560;font-size:12px"><?php esc_html_e( '← Nejdřív vyber nebo vytvoř šablonu', 'slovnik-a-feedy' ); ?></span>
+					<?php endif; ?>
 				</div>
 			</form>
+		</div>
 
-		</div><!-- /.saf-builder-editor -->
+	</div>
 
-		<!-- ── Pravý panel: live preview ─────────────────────────── -->
-		<div class="saf-builder-preview">
-			<h3 class="saf-builder-section__title">
-				<?php esc_html_e( 'Náhled (1. řádek)', 'slovnik-a-feedy' ); ?>
-			</h3>
-			<p class="saf-builder-section__hint">
-				<?php esc_html_e( 'Aktualizuje se při psaní.', 'slovnik-a-feedy' ); ?>
-			</p>
-			<div id="saf-preview-rendered" class="saf-live-preview"></div>
+	<script>
+	(function () {
+		// Aktualizuj Edit URL + hidden field při změně selectu šablony.
+		var sel     = document.getElementById('saf-template-select');
+		var editBtn = document.getElementById('saf-edit-template-btn');
+		var idField = document.getElementById('saf-template-id-field');
 
-			<?php if ( $macro_preview ) : ?>
-			<details class="saf-macro-values" style="margin-top:16px">
-				<summary style="font-size:12px;color:#888;cursor:pointer">
-					<?php esc_html_e( 'Hodnoty z 1. řádku', 'slovnik-a-feedy' ); ?>
-				</summary>
-				<table class="widefat" style="margin-top:8px;font-size:12px">
-					<tbody>
-					<?php foreach ( $macro_preview as $macro => $val ) : ?>
-						<?php if ( trim( $val ) === '' ) continue; ?>
-						<tr>
-							<td style="width:40%;color:#0073aa"><code>{{<?php echo esc_html( $macro ); ?>}}</code></td>
-							<td><?php echo esc_html( mb_strimwidth( $val, 0, 60, '…' ) ); ?></td>
-						</tr>
-					<?php endforeach; ?>
-					</tbody>
-				</table>
-			</details>
-			<?php endif; ?>
-		</div><!-- /.saf-builder-preview -->
-
-	</div><!-- /.saf-builder-layout -->
+		if (sel) {
+			sel.addEventListener('change', function () {
+				var opt = sel.options[sel.selectedIndex];
+				if (editBtn) {
+					editBtn.href        = opt.dataset.edit || '#';
+					editBtn.style.display = opt.value ? '' : 'none';
+				}
+				if (idField) idField.value = opt.value;
+			});
+			// Trigger při načtení pokud je předvybrána šablona.
+			if (sel.value) sel.dispatchEvent(new Event('change'));
+		}
+	}());
+	</script>
 
 	<?php
 	// ── KROK 3 – Výsledky ─────────────────────────────────────────────────────

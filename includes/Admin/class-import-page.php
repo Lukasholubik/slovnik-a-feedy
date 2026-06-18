@@ -65,6 +65,12 @@ final class ImportPage {
 			return;
 		}
 
+		// Speciální akce: vytvoření šablony.
+		if ( isset( $_POST['saf_action'] ) && $_POST['saf_action'] === 'create_template' ) {
+			$this->handle_create_template();
+			return;
+		}
+
 		match ( $step ) {
 			0 => $this->handle_step0(),
 			1 => $this->handle_step1(),
@@ -193,6 +199,36 @@ final class ImportPage {
 		] );
 	}
 
+	/** Vytvoření nové šablony + redirect do Gutenbergu. */
+	private function handle_create_template(): void {
+		if ( ! isset( $_POST['saf_tpl_nonce'] )
+			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['saf_tpl_nonce'] ) ), 'saf_create_template' )
+		) {
+			$this->view_data['error'] = __( 'Neplatný token.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		$title      = sanitize_text_field( wp_unslash( $_POST['template_title'] ?? 'Šablona importu' ) );
+		$session_id = sanitize_key( $_POST['session_id'] ?? '' );
+		$session    = $this->load_session( $session_id );
+
+		$template_id = \SlovnikAFeedy\TemplateManager::create( $title );
+		if ( ! $template_id ) {
+			$this->view_data['error'] = __( 'Nepodařilo se vytvořit šablonu.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		// Zapamatuj si template_id pro tento session.
+		update_option( 'saf_last_template_id', $template_id );
+
+		// Redirect do editoru (return_url = zpět na import).
+		$return_url  = admin_url( 'admin.php?page=' . self::PAGE_SLUG . '&step=2&session=' . $session_id );
+		$edit_url    = \SlovnikAFeedy\TemplateManager::get_edit_url( $template_id );
+
+		wp_safe_redirect( $edit_url );
+		exit;
+	}
+
 	/** Krok 2 – dry-run nebo spuštění importu. */
 	private function handle_step2(): void {
 		$session_id = sanitize_key( $_POST['session_id'] ?? '' );
@@ -202,7 +238,14 @@ final class ImportPage {
 			return;
 		}
 
-		$template       = wp_kses_post( wp_unslash( $_POST['template'] ?? '' ) );
+		// Načti šablonu z Gutenberg postu nebo z POST.
+		$template_post_id = absint( $_POST['template_id'] ?? 0 );
+		if ( $template_post_id ) {
+			$template = \SlovnikAFeedy\TemplateManager::get_content( $template_post_id );
+			update_option( 'saf_last_template_id', $template_post_id );
+		} else {
+			$template = wp_kses_post( wp_unslash( $_POST['template'] ?? '' ) );
+		}
 		$default_status = in_array( $_POST['default_status'] ?? '', [ 'publish', 'draft' ], true )
 			? $_POST['default_status']
 			: 'publish';

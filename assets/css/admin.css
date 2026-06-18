@@ -237,6 +237,32 @@
 .saf-live-preview p  { margin:6px 0; }
 .saf-live-preview blockquote { border-left:3px solid #e94560; padding-left:10px; color:#555; margin:8px 0; }
 
+/* ── Makro čipy (inline – kopírování) ── */
+.saf-macro-chips-inline { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.saf-macro-chip-inline {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px;
+	background: #f0f4ff;
+	border: 1px solid #b3c6f0;
+	border-radius: 20px;
+	cursor: pointer;
+	font-size: 12px;
+	transition: all .15s;
+	position: relative;
+}
+.saf-macro-chip-inline:hover { background:#dce8ff; border-color:#0073aa; }
+.saf-macro-chip-inline.copied { background:#d4edda; border-color:#28a745; }
+.saf-macro-chip-inline code { color:#0073aa; background:none; padding:0; font-size:12px; }
+.saf-chip-col { color:#999; font-size:10px; }
+.saf-chip-copy { font-size:11px; }
+.saf-chip-copied { display:none; color:#2d7738; font-size:11px; font-weight:600; }
+.saf-macro-chip-inline.copied .saf-chip-copy   { display:none; }
+.saf-macro-chip-inline.copied .saf-chip-copied { display:inline; }
+
+.saf-template-picker { padding:12px; background:#f8f8f8; border-radius:4px; margin-bottom:16px; }
+
 /* ── Import – source tabs ── */
 .saf-source-tabs { display:flex; gap:0; border:1px solid #ddd; border-radius:4px; overflow:hidden; width:fit-content; }
 .saf-source-tab { display:flex; align-items:center; gap:6px; padding:8px 16px; cursor:pointer; font-size:13px; color:#555; background:#fff; border-right:1px solid #ddd; user-select:none; }
