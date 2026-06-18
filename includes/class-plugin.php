@@ -137,7 +137,9 @@ final class Plugin {
 		// Admin-post handler pro smazání importního profilu.
 		add_action( 'admin_post_saf_delete_profile', [ $this, 'handle_delete_profile' ] );
 
-		// Přesun Elementor/externích floating modalů mimo plugin header (pouze na SAF stránkách).
+		// Skrytí Elementor license modalu na stránkách SAF pluginu.
+		// Modal je position:fixed – DOM přesun ho nevizuálně nepřesune.
+		// Uživatel ho stále vidí na jiných WP stránkách (dashboard, příspěvky…).
 		add_action( 'admin_head', static function (): void {
 			$screen = get_current_screen();
 			if ( ! $screen || ! str_contains( $screen->id, 'slovnik-a-feedy' ) ) {
@@ -145,51 +147,56 @@ final class Plugin {
 			}
 			?>
 			<script>
-			/* SAF: Elementor/Rank Math floating modals → před .saf-wrap */
+			/* SAF: Skryj Elementor license dialog na stránkách pluginu */
 			(function () {
-				function moveForeign() {
-					var wrap = document.querySelector('.saf-wrap');
-					if ( ! wrap || ! wrap.parentNode ) return;
+				// Klíčové texty pro identifikaci modalu (nezávislé na CSS třídách).
+				var MATCH = ['License Mismatch', "license key doesn't match", 'Reactivate License'];
 
-					// Projdi přímé děti <body> – vše co není #wpwrap a není naše wrap přesuň nad wrap.
-					Array.from( document.body.children ).forEach(function (el) {
-						if (
-							el === wrap ||
-							el.id === 'wpwrap' ||
-							el.id === 'wpadminbar' ||
-							el.tagName === 'SCRIPT' ||
-							el.tagName === 'STYLE' ||
-							el.tagName === 'NOSCRIPT'
-						) return;
+				function containsLicenseText(el) {
+					if ( ! el || ! el.textContent ) return false;
+					for (var i = 0; i < MATCH.length; i++) {
+						if (el.textContent.indexOf(MATCH[i]) !== -1) return true;
+					}
+					return false;
+				}
 
-						// Přesuň před .saf-wrap a resetuj fixed positioning.
-						wrap.parentNode.insertBefore( el, wrap );
-						el.style.cssText += ';position:relative!important;top:auto!important;left:auto!important;z-index:100!important;';
-					});
-
-					// Také přesuň .notice elementy uvnitř .saf-wrap ale mimo panely.
-					var header = wrap.querySelector('.saf-header');
-					if ( header ) {
-						Array.from( wrap.children ).forEach(function (child) {
-							if ( child === header ) return;
-							if (
-								child.classList.contains('notice') ||
-								child.classList.contains('updated') ||
-								child.classList.contains('update-nag')
-							) {
-								wrap.insertBefore( child, header );
-							}
-						});
+				function hideIfLicense(el) {
+					if ( ! el || el.nodeType !== 1 ) return;
+					// Přejdi na přímého potomka body.
+					var root = el;
+					while (root.parentNode && root.parentNode !== document.body) {
+						root = root.parentNode;
+					}
+					// Skryj jen pokud není #wpwrap (naše stránky jsou uvnitř #wpwrap).
+					if (root !== document.body && root.id !== 'wpwrap' && root.id !== 'wpadminbar') {
+						if (containsLicenseText(root)) {
+							root.style.display = 'none';
+							return;
+						}
+					}
+					// Fallback: hledej i uvnitř #wpbody-content (inline notice).
+					if (containsLicenseText(el) && !el.closest('.saf-wrap')) {
+						el.style.display = 'none';
 					}
 				}
 
-				// Spusť okamžitě + po renderu React komponent (Elementor je async).
-				moveForeign();
-				[100, 400, 800, 1500].forEach(function (t) { setTimeout(moveForeign, t); });
+				function scanAll() {
+					// Přímí potomci body (Elementor React portál).
+					Array.from(document.body.children).forEach(hideIfLicense);
+					// Inline notices v #wpbody-content mimo naši wrap.
+					var wbc = document.getElementById('wpbody-content');
+					if (wbc) Array.from(wbc.children).forEach(hideIfLicense);
+				}
 
-				// MutationObserver pro jakékoli pozdější přidání.
-				new MutationObserver(function () { setTimeout(moveForeign, 50); })
-					.observe(document.body, { childList: true, subtree: false });
+				// Spusť v několika vlnách – Elementor renderuje async.
+				[0, 150, 400, 900, 1800].forEach(function (t) { setTimeout(scanAll, t); });
+
+				// Observer pro pozdní přidání.
+				new MutationObserver(function (mutations) {
+					mutations.forEach(function (m) {
+						m.addedNodes.forEach(hideIfLicense);
+					});
+				}).observe(document.body, { childList: true, subtree: false });
 			}());
 			</script>
 			<?php
