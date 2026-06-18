@@ -52,11 +52,15 @@ final class Mapper {
 	public function map_row( array $source_row ): array {
 		$result = array_fill_keys( array_keys( self::FIELDS ), '' );
 
-		foreach ( $this->mapping as $source_col => $field_slug ) {
-			if ( ! isset( self::FIELDS[ $field_slug ] ) ) {
-				continue; // Neznámé pole – přeskoč (whitelist ochrana).
+		foreach ( $this->mapping as $source_col => $field_or_fields ) {
+			$val    = $source_row[ $source_col ] ?? '';
+			$fields = is_array( $field_or_fields ) ? $field_or_fields : [ $field_or_fields ];
+
+			foreach ( $fields as $field_slug ) {
+				if ( $field_slug && isset( self::FIELDS[ $field_slug ] ) ) {
+					$result[ $field_slug ] = $val;
+				}
 			}
-			$result[ $field_slug ] = $source_row[ $source_col ] ?? '';
 		}
 
 		return $result;

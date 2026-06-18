@@ -131,24 +131,6 @@ final class AdminMenu {
 			);
 		}
 
-		// Přesun externích WP notifikací nad náš header (inline script – žádný HTTP request).
-		wp_add_inline_script(
-			'saf-admin',
-			"document.addEventListener('DOMContentLoaded',function(){
-				var header=document.querySelector('.saf-header');
-				if(!header)return;
-				var wrap=header.closest('.saf-wrap');
-				if(!wrap)return;
-				// Přesuň WP notices z wrap před header (pokud jsou uvnitř wrap).
-				wrap.querySelectorAll('.notice,.updated,.update-nag').forEach(function(n){
-					if(!n.closest('.saf-panel')&&!n.closest('.saf-columns')){
-						wrap.insertBefore(n,header);
-					}
-				});
-			});",
-			'after'
-		);
-
 		wp_enqueue_script( 'saf-admin-js', SAF_URL . 'assets/js/saf-admin.js', [], SAF_VERSION, true );
 	}
 

@@ -55,9 +55,16 @@ final class AnalyticsPage {
 		}
 
 		// Předchozí období pro trend srovnání.
-		$prev_to   = gmdate( 'Y-m-d', strtotime( $from . ' -1 day' ) );
-		$prev_from = gmdate( 'Y-m-d', strtotime( "-{$range} days", strtotime( $prev_to ) ) );
+		$prev_to      = gmdate( 'Y-m-d', strtotime( $from . ' -1 day' ) );
+		$prev_from    = gmdate( 'Y-m-d', strtotime( "-{$range} days", strtotime( $prev_to ) ) );
 		$prev_summary = AnalyticsStore::get_summary( $prev_from, $prev_to, $cpt );
+
+		// Top 10 + Bottom 10.
+		$top_pages    = AnalyticsStore::get_pages( $from, $to, $cpt, 'views', 'DESC', 10, 0 );
+		$bottom_pages = AnalyticsStore::get_pages( $from, $to, $cpt, 'views', 'ASC',  10, 0 );
+
+		// Diagnostika trackingu.
+		$tracking_active = (bool) get_option( 'saf_track_admins', false );
 
 		require SAF_DIR . 'includes/Admin/views/analytics.php';
 	}

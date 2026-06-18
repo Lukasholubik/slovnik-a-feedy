@@ -145,7 +145,7 @@ final class AnalyticsStore {
 	public static function get_pages(
 		string $from,
 		string $to,
-		string $cpt    = '',
+		string $cpt      = '',
 		string $order_by = 'views',
 		string $order    = 'DESC',
 		int    $limit    = 20,
@@ -153,8 +153,9 @@ final class AnalyticsStore {
 	): array {
 		global $wpdb;
 
-		$table       = $wpdb->prefix . self::TABLE;
-		$order_by_col = in_array( $order_by, [ 'views', 'clicks' ], true ) ? $order_by : 'views';
+		$table        = $wpdb->prefix . self::TABLE;
+		$allowed_cols = [ 'views', 'clicks', 'avg_time' ];
+		$order_by_col = in_array( $order_by, $allowed_cols, true ) ? $order_by : 'views';
 		$order_dir    = 'ASC' === strtoupper( $order ) ? 'ASC' : 'DESC';
 
 		$where  = 'WHERE s.stat_date BETWEEN %s AND %s AND p.post_status = %s';
@@ -179,12 +180,16 @@ final class AnalyticsStore {
 		return (array) $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
-					p.ID                              AS post_id,
-					p.post_title                      AS title,
-					p.post_name                       AS slug,
-					p.post_type                       AS cpt,
-					COALESCE(SUM(s.views), 0)         AS views,
-					COALESCE(SUM(s.clicks), 0)        AS clicks
+					p.ID                                                   AS post_id,
+					p.post_title                                           AS title,
+					p.post_name                                            AS slug,
+					p.post_type                                            AS cpt,
+					COALESCE(SUM(s.views), 0)                              AS views,
+					COALESCE(SUM(s.clicks), 0)                             AS clicks,
+					CASE WHEN SUM(s.time_count) > 0
+						THEN ROUND(SUM(s.time_total) / SUM(s.time_count))
+						ELSE 0
+					END                                                    AS avg_time
 				FROM {$table} s
 				JOIN {$wpdb->posts} p ON p.ID = s.post_id
 				{$where}

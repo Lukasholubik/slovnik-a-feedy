@@ -25,6 +25,7 @@ final class Settings {
 		'batch_size'        => 50,
 		'log_retention'     => 30,
 		'force_overwrite'   => '0',
+		'track_admins'      => '0', // Sledovat i přihlášené adminy (pro testování)
 	];
 
 	// -------------------------------------------------------------------------

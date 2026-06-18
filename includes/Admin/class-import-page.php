@@ -152,12 +152,17 @@ final class ImportPage {
 			] );
 
 			// Registruj relaci v seznamu aktivních importů.
-			$file_name = sanitize_text_field( $_FILES['saf_file']['name'] ?? ( $_POST['gsheet_url'] ?? 'Google Sheets' ) );
+			$file_name  = sanitize_text_field( wp_unslash( $_FILES['saf_file']['name'] ?? '' ) );
+			$source_url = esc_url_raw( wp_unslash( $_POST['gsheet_url'] ?? '' ) );
+			if ( ! $file_name ) {
+				$file_name = $source_url ?: 'Neznámý zdroj';
+			}
 			ImportSessionRegistry::register( $session_id, [
 				'last_step'   => 1,
 				'stream_name' => $stream['name'] ?? '',
 				'source_type' => $source_type,
 				'file_name'   => $file_name,
+				'source_url'  => $source_url,
 				'total_rows'  => $total_rows,
 				'macro_count' => count( $columns ),
 			] );
@@ -208,14 +213,23 @@ final class ImportPage {
 		}
 
 		// Sanitizuj mapování polí pluginu (title, slug, seo...).
+		// Každý sloupec může mít pole polí: mapping[col][] = ['slug', 'seo_keyword'].
 		$raw_mapping = (array) ( $_POST['mapping'] ?? [] );
 		$mapping     = [];
-		foreach ( $raw_mapping as $col => $field ) {
-			$col   = sanitize_text_field( wp_unslash( $col ) );
-			$field = sanitize_key( $field );
-			if ( $field && isset( Mapper::FIELDS[ $field ] ) ) {
-				$mapping[ $col ] = $field;
+		foreach ( $raw_mapping as $col => $raw_fields ) {
+			$col        = sanitize_text_field( wp_unslash( $col ) );
+			$raw_fields = is_array( $raw_fields ) ? $raw_fields : [ $raw_fields ];
+
+			$valid = array_values( array_filter(
+				array_map( 'sanitize_key', $raw_fields ),
+				static fn( string $f ): bool => $f !== '' && isset( Mapper::FIELDS[ $f ] )
+			) );
+
+			if ( empty( $valid ) ) {
+				continue;
 			}
+			// Jeden výsledek = string, více = pole (zpětná kompatibilita).
+			$mapping[ $col ] = count( $valid ) === 1 ? $valid[0] : $valid;
 		}
 
 		$session['macro_names'] = $macro_names;
@@ -355,6 +369,7 @@ final class ImportPage {
 			'stream_id'   => sanitize_key( $data['stream_id'] ?? '' ),
 			'stream_name' => sanitize_text_field( wp_unslash( $data['stream_name'] ?? '' ) ),
 			'template_id' => absint( $data['template_id'] ?? 0 ),
+			'source_url'  => esc_url_raw( $data['source_url'] ?? '' ),
 			'macro_names' => [],
 			'mapping'     => [],
 		];
@@ -526,6 +541,7 @@ final class ImportPage {
 				'macro_names' => $session['macro_names'] ?? [],
 				'template_id' => $template_post_id,
 				'mapping'     => $session['mapping'] ?? [],
+				'source_url'  => $session['source_url'] ?? '',
 			],
 		] );
 	}

@@ -49,16 +49,10 @@ $step_labels = [
 		<?php endforeach; ?>
 	</div>
 
-	<?php if ( $error ) : ?>
-	<div class="notice notice-error">
-		<p><strong><?php echo esc_html( $error ); ?></strong></p>
-		<?php if ( str_contains( $error, 'HTML' ) || str_contains( $error, 'CSV' ) ) : ?>
-		<p><?php esc_html_e( 'Jak získat správnou URL z Google Sheets:', 'slovnik-a-feedy' ); ?>
-			<code>Soubor → Sdílet → Publikovat na web → vybrat list → CSV → Publikovat → zkopírovat URL</code>
-		</p>
-		<?php endif; ?>
-	</div>
-	<?php endif; ?>
+	<?php
+	// Chybové hlášky se zobrazují UVNITŘ příslušného panelu (ne na vrcholu stránky).
+	// Tato proměnná se předá do panelu krok 0, 1 nebo 2 a zobrazí se tam.
+	?>
 
 	<?php
 	// ── KROK 0 – Zdroj dat ────────────────────────────────────────────────────
@@ -341,6 +335,18 @@ $step_labels = [
 					<?php esc_html_e( 'Nahrát a detekovat sloupce →', 'slovnik-a-feedy' ); ?>
 				</button>
 			</div>
+
+			<?php if ( $error ) : ?>
+			<div class="saf-inline-error notice notice-error" style="margin:12px 0 0;padding:12px 16px;">
+				<p><strong><?php echo esc_html( $error ); ?></strong></p>
+				<?php if ( str_contains( $error, 'HTML' ) || str_contains( $error, 'CSV' ) || str_contains( $error, '404' ) ) : ?>
+				<p style="margin-top:6px">
+					<?php esc_html_e( 'Jak získat správnou URL z Google Sheets:', 'slovnik-a-feedy' ); ?><br>
+					<code>Soubor → Sdílet → Publikovat na web → vybrat list → CSV → Publikovat → zkopírovat URL</code>
+				</p>
+				<?php endif; ?>
+			</div>
+			<?php endif; ?>
 		</form>
 	</div>
 
@@ -407,11 +413,20 @@ $step_labels = [
 					</tr>
 				</thead>
 				<tbody>
-				<?php foreach ( $columns as $i => $col ) :
-					$macro   = $macro_names[ $col ]   ?? '';
-					$mapped  = $auto_mapping[ $col ]   ?? '';
-					$preview = $preview_rows[0][ $col ] ?? '';
-					$row_class = $i % 2 === 0 ? '' : 'alternate';
+				<?php
+				// Připrav HTML pro jeden select (reusable).
+				$field_options_html = '<option value="">' . esc_html__( '— jen obsah —', 'slovnik-a-feedy' ) . '</option>';
+				foreach ( $fields as $slug => $label ) {
+					$field_options_html .= '<option value="' . esc_attr( $slug ) . '">' . esc_html( $label ) . '</option>';
+				}
+
+				foreach ( $columns as $i => $col ) :
+					$macro      = $macro_names[ $col ] ?? '';
+					$mapped_raw = $auto_mapping[ $col ] ?? '';
+					$mapped_arr = is_array( $mapped_raw ) ? $mapped_raw : ( $mapped_raw ? [ $mapped_raw ] : [] );
+					$preview    = $preview_rows[0][ $col ] ?? '';
+					$row_class  = $i % 2 === 0 ? '' : 'alternate';
+					$col_key    = esc_attr( $col );
 				?>
 				<tr class="<?php echo $row_class; ?>">
 					<td>
@@ -421,25 +436,45 @@ $step_labels = [
 						<div class="saf-macro-input-wrap">
 							<span class="saf-macro-brace">{{</span>
 							<input type="text"
-								name="macro_names[<?php echo esc_attr( $col ); ?>]"
+								name="macro_names[<?php echo $col_key; ?>]"
 								value="<?php echo esc_attr( $macro ); ?>"
 								class="saf-macro-input"
-								pattern="[a-z0-9_]+"
-								title="<?php esc_attr_e( 'Pouze malá písmena, čísla a podtržítko', 'slovnik-a-feedy' ); ?>"
+								pattern="[a-z0-9_,\s]+"
+								title="<?php esc_attr_e( 'Jedno nebo více maker oddělených čárkou: kw, sug_url', 'slovnik-a-feedy' ); ?>"
 								required>
 							<span class="saf-macro-brace">}}</span>
 						</div>
 					</td>
 					<td>
-						<select name="mapping[<?php echo esc_attr( $col ); ?>]" class="saf-field-select">
-							<option value=""><?php esc_html_e( '— jen obsah —', 'slovnik-a-feedy' ); ?></option>
-							<?php foreach ( $fields as $slug => $label ) : ?>
-							<option value="<?php echo esc_attr( $slug ); ?>"
-								<?php selected( $mapped, $slug ); ?>>
-								<?php echo esc_html( $label ); ?>
-							</option>
+						<!-- Multi-pole: každý sloupec může mít N přiřazení polí pluginu -->
+						<div class="saf-multi-field" id="saf-mf-<?php echo $col_key; ?>">
+							<?php
+							// Zobraz alespoň jeden select, vždy jeden "prázdný" navíc pro +Přidat.
+							$show_fields = ! empty( $mapped_arr ) ? $mapped_arr : [ '' ];
+							foreach ( $show_fields as $fi => $sel_val ) :
+							?>
+							<div class="saf-field-row" style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+								<select name="mapping[<?php echo $col_key; ?>][]" class="saf-field-select">
+									<?php
+									foreach ( $fields as $slug => $label ) {
+										$selected = ( $slug === $sel_val ) ? ' selected' : '';
+										echo '<option value="' . esc_attr( $slug ) . '"' . $selected . '>' . esc_html( $label ) . '</option>';
+									}
+									echo '<option value=""' . ( ! $sel_val ? ' selected' : '' ) . '>' . esc_html__( '— jen obsah —', 'slovnik-a-feedy' ) . '</option>';
+									?>
+								</select>
+								<?php if ( $fi > 0 ) : ?>
+								<button type="button" class="saf-remove-field button-link" style="color:#e94560;font-size:16px;line-height:1" title="Odebrat">×</button>
+								<?php endif; ?>
+							</div>
 							<?php endforeach; ?>
-						</select>
+						</div>
+						<button type="button"
+							class="saf-add-field button-link"
+							data-target="saf-mf-<?php echo $col_key; ?>"
+							style="font-size:12px;color:#0073aa">
+							+ <?php esc_html_e( 'Přidat pole', 'slovnik-a-feedy' ); ?>
+						</button>
 					</td>
 					<td class="saf-preview-val">
 						<?php echo esc_html( mb_strimwidth( $preview, 0, 50, '…' ) ); ?>
@@ -448,6 +483,12 @@ $step_labels = [
 				<?php endforeach; ?>
 				</tbody>
 			</table>
+
+			<?php if ( $error ) : ?>
+			<div class="saf-inline-error notice notice-error" style="margin:12px 0;padding:12px 16px">
+				<p><strong><?php echo esc_html( $error ); ?></strong></p>
+			</div>
+			<?php endif; ?>
 
 			<div style="margin-top:16px;display:flex;gap:12px;align-items:center">
 				<button type="submit" class="button button-primary button-large">
@@ -462,6 +503,59 @@ $step_labels = [
 			</div>
 		</form>
 	</div>
+
+	<script>
+	/* Multi-pole pluginu – přidání / odebrání dalšího dropdown */
+	(function(){
+		// Šablona pro nový field row.
+		var fieldOptions = <?php
+			$opts = [];
+			foreach ( $fields as $slug => $label ) {
+				$opts[] = [ 'v' => $slug, 'l' => $label ];
+			}
+			echo json_encode( $opts );
+		?>;
+
+		function buildSelect( name ) {
+			var sel = document.createElement('select');
+			sel.name = name;
+			sel.className = 'saf-field-select';
+			// Prázdná možnost první.
+			var empty = new Option('<?php esc_html_e( '— jen obsah —', 'slovnik-a-feedy' ); ?>', '', true, true );
+			sel.appendChild( empty );
+			fieldOptions.forEach(function(o){ sel.appendChild( new Option(o.l, o.v) ); });
+			return sel;
+		}
+
+		document.addEventListener('click', function(e){
+			// Přidat pole.
+			if ( e.target.classList.contains('saf-add-field') ) {
+				var container = document.getElementById( e.target.dataset.target );
+				if ( !container ) return;
+				// Zjisti name z prvního selectu.
+				var firstSel = container.querySelector('select');
+				if ( !firstSel ) return;
+				var row = document.createElement('div');
+				row.className = 'saf-field-row';
+				row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:4px';
+				row.appendChild( buildSelect( firstSel.name ) );
+				var rm = document.createElement('button');
+				rm.type = 'button';
+				rm.className = 'saf-remove-field button-link';
+				rm.style.cssText = 'color:#e94560;font-size:16px;line-height:1';
+				rm.title = '<?php esc_attr_e( 'Odebrat', 'slovnik-a-feedy' ); ?>';
+				rm.textContent = '×';
+				row.appendChild( rm );
+				container.appendChild( row );
+			}
+			// Odebrat pole.
+			if ( e.target.classList.contains('saf-remove-field') ) {
+				var row = e.target.closest('.saf-field-row');
+				if ( row ) row.remove();
+			}
+		});
+	})();
+	</script>
 
 	<?php
 	// ── KROK 2 – Výběr šablony (Gutenberg) ───────────────────────────────────

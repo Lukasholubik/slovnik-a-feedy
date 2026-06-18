@@ -1,60 +1,64 @@
 /**
- * SAF Tracker – sledování kliknutí na odchozí a interní linky.
- * Spouští se na single stránkách CPT streamů.
+ * SAF Tracker – sledování kliknutí a doby strávené na stránce.
  */
 (function () {
 	'use strict';
 
-	if (typeof safTracker === 'undefined') return;
+	if ( typeof safTracker === 'undefined' ) return;
 
-	var config   = safTracker;
-	var postId   = parseInt(config.postId, 10);
-	var sent     = false;
+	var config    = safTracker;
+	var postId    = parseInt( config.postId, 10 );
+	var startTime = Date.now();
+	var clickSent = false;
 
-	/**
-	 * Odešle click event na REST endpoint pluginu.
-	 */
+	// ── Odeslání kliknutí ────────────────────────────────────────────────────
+
 	function sendClick() {
-		if (sent) return;
-		sent = true;
+		if ( clickSent ) return;
+		clickSent = true;
+		send( config.restUrl, { post_id: postId, nonce: config.nonce } );
+	}
 
-		var data = JSON.stringify({ post_id: postId, nonce: config.nonce });
+	// ── Odeslání doby na stránce ─────────────────────────────────────────────
 
-		// Preferuj sendBeacon (funguje i při zavírání stránky).
-		if (navigator.sendBeacon) {
-			var blob = new Blob([data], { type: 'application/json' });
-			navigator.sendBeacon(config.restUrl, blob);
+	function sendTime() {
+		var seconds = Math.round( ( Date.now() - startTime ) / 1000 );
+		if ( seconds < 3 || seconds > 3600 ) return; // ignoruj extrémní hodnoty
+		send( config.timeUrl, { post_id: postId, nonce: config.nonce, seconds: seconds } );
+	}
+
+	// ── Pomocná funkce sendBeacon / fetch ─────────────────────────────────────
+
+	function send( url, data ) {
+		var body = JSON.stringify( data );
+		if ( navigator.sendBeacon ) {
+			navigator.sendBeacon( url, new Blob( [body], { type: 'application/json' } ) );
 		} else {
-			fetch(config.restUrl, {
-				method:      'POST',
-				headers:     { 'Content-Type': 'application/json' },
-				body:        data,
-				keepalive:   true
-			}).catch(function () {});
+			fetch( url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true } )
+				.catch( function () {} );
 		}
 	}
 
-	/**
-	 * Sleduj kliknutí na všechny linky na stránce.
-	 * Počítáme klik = uživatel kliknul na odkaz který ho odvede z aktuální stránky.
-	 */
-	document.addEventListener('click', function (e) {
+	// ── Sledování kliknutí na odcházející linky ───────────────────────────────
+
+	document.addEventListener( 'click', function ( e ) {
 		var el = e.target;
-		// Najdi nejbližší <a> rodič.
-		while (el && el.tagName !== 'A') {
-			el = el.parentElement;
-		}
-		if (!el || !el.href) return;
-
-		var href = el.href;
-
-		// Interní odkaz na jinou stránku nebo odchozí = počítáme jako click.
-		if (href && href !== window.location.href && !href.startsWith('#')) {
+		while ( el && el.tagName !== 'A' ) el = el.parentElement;
+		if ( el && el.href && el.href !== window.location.href && !el.href.startsWith( '#' ) ) {
 			sendClick();
 		}
-	});
+	} );
 
-	// Sleduj opuštění stránky (pagehide / beforeunload).
-	window.addEventListener('pagehide', sendClick);
+	// ── Sledování odchodu ze stránky ─────────────────────────────────────────
 
-}());
+	window.addEventListener( 'pagehide', function () {
+		sendTime();
+		sendClick(); // klik = odchod (pokud neodeslán dřív)
+	} );
+
+	// Fallback pro starší prohlížeče.
+	window.addEventListener( 'beforeunload', function () {
+		sendTime();
+	} );
+
+}() );
