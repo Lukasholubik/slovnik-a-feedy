@@ -52,9 +52,11 @@ final class Taxonomy {
 					'menu_name'     => __( 'Písmena (A–Z)', 'slovnik-a-feedy' ),
 					'not_found'     => __( 'Žádná písmena nenalezena.', 'slovnik-a-feedy' ),
 				],
+				'public'             => true,   // Nutné pro Elementor/Crocoblock podmínky.
 				'hierarchical'       => false,
 				'show_ui'            => true,
 				'show_admin_column'  => true,
+				'show_in_nav_menus'  => true,   // Elementor čte tento flag při generování podmínek.
 				'show_tagcloud'      => false,
 				'query_var'          => true,
 				'rewrite'            => [
@@ -64,12 +66,8 @@ final class Taxonomy {
 				],
 				'show_in_rest'       => true,
 				'rest_base'          => $this->stream['cpt'] . '-letter',
-				'capabilities'       => [
-					'manage_terms' => 'manage_glossary',
-					'edit_terms'   => 'manage_glossary',
-					'delete_terms' => 'manage_glossary',
-					'assign_terms' => 'edit_posts',
-				],
+				// Bez custom capabilities – standardní WP práva.
+				// Custom capabilities blokovaly Elementor při detekci taxonomie.
 			]
 		);
 	}

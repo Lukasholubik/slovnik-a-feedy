@@ -131,7 +131,7 @@ final class Importer {
 		if ( $this->dry_run ) {
 			$action = $existing_id ? 'aktualizace' : 'vytvoření';
 			Logger::info(
-				"DRY-RUN [{$action}] „{$post_data['post_title']}" (ext_id: {$external_id})",
+				sprintf( 'DRY-RUN [%s] "%s" (ext_id: %s)', $action, $post_data['post_title'], $external_id ),
 				'import-dry',
 				[ 'post_data' => $post_data, 'seo' => $this->extract_seo_fields( $mapped ) ]
 			);
@@ -143,7 +143,7 @@ final class Importer {
 		$post_id = wp_insert_post( $post_data, true );
 		if ( is_wp_error( $post_id ) ) {
 			Logger::error(
-				"Chyba při ukládání „{$post_data['post_title']}": " . $post_id->get_error_message(),
+				sprintf( 'Chyba pri ukladani "%s": %s', $post_data['post_title'], $post_id->get_error_message() ),
 				'import',
 				$raw_row
 			);
@@ -161,10 +161,10 @@ final class Importer {
 		$this->assign_taxonomies( $post_id, $mapped );
 
 		if ( $existing_id ) {
-			Logger::info( "Aktualizován: „{$post_data['post_title']}" (ID {$post_id})", 'import' );
+			Logger::info( sprintf( 'Aktualizovan: "%s" (ID %d)', $post_data['post_title'], $post_id ), 'import' );
 			$this->updated++;
 		} else {
-			Logger::info( "Vytvořen: „{$post_data['post_title']}" (ID {$post_id})", 'import' );
+			Logger::info( sprintf( 'Vytvoren: "%s" (ID %d)', $post_data['post_title'], $post_id ), 'import' );
 			$this->created++;
 		}
 	}
