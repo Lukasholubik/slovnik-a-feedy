@@ -76,8 +76,8 @@ final class Cpt {
 	/** @return array<string, string|null> */
 	private function get_labels(): array {
 		return [
-			'name'                  => _x( 'Pojmy', 'post type general name', 'slovnik-a-feedy' ),
-			'singular_name'         => _x( 'Pojem', 'post type singular name', 'slovnik-a-feedy' ),
+			'name'                  => _x( 'Pojmy – Grou.cz', 'post type general name', 'slovnik-a-feedy' ),
+			'singular_name'         => _x( 'Pojem – Grou.cz', 'post type singular name', 'slovnik-a-feedy' ),
 			'menu_name'             => __( 'Pojmy slovníčku', 'slovnik-a-feedy' ),
 			'name_admin_bar'        => __( 'Pojem', 'slovnik-a-feedy' ),
 			'add_new'               => __( 'Přidat nový', 'slovnik-a-feedy' ),
