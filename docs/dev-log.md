@@ -4,6 +4,47 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-18 – Fáze 2: Import – CSV, XML, Template Engine, Upsert, Admin wizard
+
+**Co bylo uděláno:**
+
+### Importer moduly
+- `interface-source.php` – kontrak pro všechny zdroje (`get_rows(): iterable`, `get_columns(): array`)
+- `class-csv-source.php` – streamované `fgetcsv`, UTF-8 BOM, auto-detekce oddělovače (`,;|\t`), path traversal ochrana
+- `class-xml-source.php` – `simplexml_load_file` s `LIBXML_NONET` (XXE ochrana), atributy i child elementy jako sloupce
+- `class-array-source.php` – adapter pro PHP pole (použit BatchRunnerem)
+- `class-mapper.php` – whitelist polí (`title, excerpt, slug, status, seo_*, letter, category, external_id`), auto-mapování dle aliasů, `map_row()`
+- `class-template-engine.php` – `{{col}}` escape, `{{{col}}}` raw HTML (wp_kses), `{{#if}}`, `{{#each|sep}}`, výchozí šablona
+- `class-importer.php` – upsert dle `_saf_external_id`, `wp_insert_post`, taxonomie auto-assign z titulku (`get_letter_slug`), Rank Math podmíněný zápis, dry-run režim, logování každého řádku
+- `class-batch-runner.php` – synchronní import ≤200 řádků, WP-Cron dávky pro větší soubory (configurable batch size), progress tracking
+
+### Admin
+- `class-settings.php` – centralizované options (`saf_*`), import profily (uložené v DB option), `save_from_post()` se sanitizací
+- `class-import-page.php` – multi-step wizard (krok 0–3), transient session, upload s MIME validací, Google Sheets URL stažení (SSRF whitelist: pouze docs.google.com), temp soubory v `uploads/saf-imports/` (chráněno .htaccess)
+- `class-admin-menu.php` – přidána submenu: Import, Nastavení; handler mazání profilů
+- `views/import.php` – kompletní wizard UI (zdroj → mapování → šablona s live preview → výsledky)
+- `views/settings.php` – nastavení (default status, GSheet URL, schedule, batch size, log retention, profily)
+- `class-plugin.php` – registrace `BatchRunner::register_hooks()`, `admin_post_saf_delete_profile`
+
+### Bezpečnost (audit)
+- ✅ MIME validace uploadů (`wp_check_filetype_and_ext`)
+- ✅ Path traversal ochrana v CsvSource/XmlSource (realpath + upload_dir check)
+- ✅ XXE ochrana v XmlSource (LIBXML_NONET)
+- ✅ SSRF whitelist pro Google Sheets URL
+- ✅ Nonce na každém formuláři (step-specific: `saf_import_step_N`)
+- ✅ Whitelist pole Mapperu (nelze mapovat na neznámé klíče)
+- ✅ Sanitizace: `sanitize_text_field`, `wp_kses_post`, `esc_url_raw`, `absint` dle typu
+- ✅ `current_user_can('manage_glossary')` na každé stránce
+
+**Jak otestovat Fázi 2:**
+1. WP Admin → Slovník a Feedy → Import
+2. Nahraj CSV soubor (1. řádek = hlavička)
+3. Namapuj sloupce → pokračuj na šablonu
+4. Klikni Dry-run – zkontroluj logy
+5. Spusť import → Slovník a Feedy → Všechny pojmy
+
+---
+
 ## 2026-06-18 – perf: Odstranění user_has_cap filtru
 
 **Problém:** `user_has_cap` filtr se spouštěl na každý `current_user_can()` call – stovkykrát za stránku.

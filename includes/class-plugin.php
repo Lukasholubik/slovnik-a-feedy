@@ -45,6 +45,19 @@ final class Plugin {
 		);
 	}
 
+	public function handle_delete_profile(): void {
+		if ( ! current_user_can( 'manage_glossary' ) ) {
+			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
+		}
+		$profile_id = sanitize_key( $_GET['profile_id'] ?? '' );
+		if ( ! $profile_id || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ?? '' ) ), 'saf_delete_profile_' . $profile_id ) ) {
+			wp_die( esc_html__( 'Neplatný token.', 'slovnik-a-feedy' ) );
+		}
+		Admin\Settings::delete_profile( $profile_id );
+		wp_safe_redirect( admin_url( 'admin.php?page=slovnik-a-feedy-nastaveni&deleted=1' ) );
+		exit;
+	}
+
 	private function register_hooks(): void {
 		// Jednorázový capability grant – spustí se jen pokud administrátor
 		// manage_glossary ještě nemá (např. po ruční deaktivaci capability).
@@ -79,6 +92,12 @@ final class Plugin {
 		// Schema DefinedTerm na singulárních stránkách pojmu.
 		$schema = new SEO\Schema();
 		add_filter( 'rank_math/json_ld', [ $schema, 'add_defined_term' ], 10, 2 );
+
+		// Batch import Cron hook.
+		Importer\BatchRunner::register_hooks();
+
+		// Admin-post handler pro smazání importního profilu.
+		add_action( 'admin_post_saf_delete_profile', [ $this, 'handle_delete_profile' ] );
 
 		// Admin UI.
 		if ( is_admin() ) {

@@ -95,6 +95,58 @@
 .saf-footer { text-align: center; font-size: 12px; color: #999; margin-top: 20px; padding: 10px; }
 .saf-footer a { color: #e94560; text-decoration: none; }
 
+/* ── Import wizard ── */
+.saf-wizard-steps { display:flex; gap:0; margin-bottom:20px; border:1px solid #e0e0e0; border-radius:6px; overflow:hidden; background:#fff; }
+.saf-wizard-step { flex:1; padding:12px 16px; display:flex; align-items:center; gap:8px; font-size:13px; color:#888; border-right:1px solid #e0e0e0; }
+.saf-wizard-step:last-child { border-right:none; }
+.saf-wizard-step--active { background:#1a1a2e; color:#fff; }
+.saf-wizard-step--done { background:#f0faf0; color:#2d7738; }
+.saf-wizard-step__num { width:22px; height:22px; border-radius:50%; background:rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+.saf-wizard-step--active .saf-wizard-step__num { background:#e94560; }
+.saf-wizard-step--done .saf-wizard-step__num { background:#2d7738; color:#fff; }
+
+.saf-source-select { display:flex; gap:12px; flex-wrap:wrap; margin:16px 0; padding:0; border:none; }
+.saf-source-option { display:flex; flex-direction:column; align-items:center; gap:6px; padding:16px 20px; border:2px solid #e0e0e0; border-radius:8px; cursor:pointer; min-width:180px; transition:border-color .2s; }
+.saf-source-option:has(input:checked) { border-color:#1a1a2e; background:#f8f8ff; }
+.saf-source-option input { margin:0; }
+.saf-source-option .dashicons { font-size:28px; color:#1a1a2e; }
+.saf-source-option strong { font-size:13px; }
+.saf-source-option small { font-size:11px; color:#888; text-align:center; }
+
+.saf-source-inputs { margin:16px 0; }
+.saf-source-input { margin-bottom:12px; }
+.saf-source-input label { display:block; margin-bottom:6px; }
+
+.saf-profile-load { margin:16px 0; padding:12px; background:#f8f8f8; border-radius:4px; }
+.saf-profile-save { margin:16px 0; display:flex; align-items:center; gap:10px; }
+
+.saf-mapping-table { margin:12px 0 20px; }
+.saf-mapping-table td code { background:#f0f0f0; padding:2px 6px; border-radius:3px; }
+
+.saf-syntax-help { margin:12px 0; border:1px solid #e0e0e0; border-radius:4px; padding:10px; }
+.saf-syntax-help summary { cursor:pointer; font-weight:600; color:#0073aa; }
+.saf-syntax-help table { margin-top:10px; }
+.saf-syntax-help td code { background:#f0f0f0; padding:2px 6px; border-radius:3px; font-size:11px; }
+
+.saf-import-actions { display:flex; gap:10px; margin-top:20px; }
+
+.saf-preview-data, .saf-preview-rendered { margin-bottom:16px; }
+.saf-preview-data h4, .saf-preview-rendered h4 { font-size:13px; color:#555; margin-bottom:8px; }
+.saf-preview-pre { background:#1a1a2e; color:#e0e0e0; padding:14px; border-radius:4px; font-size:12px; overflow:auto; max-height:300px; white-space:pre-wrap; }
+
+.saf-result-stats { display:flex; gap:16px; flex-wrap:wrap; margin:16px 0 20px; }
+.saf-result-stat { text-align:center; padding:16px 24px; border-radius:6px; background:#f8f8f8; border:1px solid #e0e0e0; min-width:100px; }
+.saf-result-stat strong { display:block; font-size:32px; font-weight:700; color:#1a1a2e; }
+.saf-result-stat span { font-size:12px; color:#666; }
+.saf-result-stat--ok { background:#f0faf0; border-color:#2d7738; }
+.saf-result-stat--ok strong { color:#2d7738; }
+.saf-result-stat--update { background:#f0f4ff; border-color:#0073aa; }
+.saf-result-stat--update strong { color:#0073aa; }
+.saf-result-stat--skip { background:#fffbf0; border-color:#856404; }
+.saf-result-stat--skip strong { color:#856404; }
+
+.saf-result-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+
 /* ── Logy ── */
 .saf-log-filter {
 	display: flex;
