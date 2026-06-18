@@ -43,7 +43,17 @@ $icons = [
 	</div>
 
 	<?php if ( $notice ) : ?>
-	<div class="notice notice-success is-dismissible"><p><?php echo esc_html( $notice ); ?></p></div>
+	<div class="notice notice-success is-dismissible">
+		<p><?php echo esc_html( $notice ); ?></p>
+		<p>
+			<strong>⚠️ <?php esc_html_e( 'Povinný krok:', 'slovnik-a-feedy' ); ?></strong>
+			<?php esc_html_e( 'Aby nové URL fungovaly, přejdi do', 'slovnik-a-feedy' ); ?>
+			<a href="<?php echo esc_url( admin_url( 'options-permalink.php' ) ); ?>">
+				<?php esc_html_e( 'Nastavení → Permalinky', 'slovnik-a-feedy' ); ?>
+			</a>
+			<?php esc_html_e( 'a klikni na Uložit změny.', 'slovnik-a-feedy' ); ?>
+		</p>
+	</div>
 	<?php endif; ?>
 	<?php if ( $error ) : ?>
 	<div class="notice notice-error"><p><?php echo esc_html( $error ); ?></p></div>
