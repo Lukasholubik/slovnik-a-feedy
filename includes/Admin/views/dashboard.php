@@ -221,32 +221,56 @@ $log_warnings = Logger::count( Logger::WARNING );
 
 	</div><!-- /.saf-columns -->
 
-	<!-- Dokumentace -->
+	<!-- Stav funkcí -->
 	<div class="saf-panel saf-panel--full">
 		<h2 class="saf-panel__title">
-			<span class="dashicons dashicons-info"></span>
-			<?php esc_html_e( 'Jak plugin funguje', 'slovnik-a-feedy' ); ?>
+			<span class="dashicons dashicons-yes-alt"></span>
+			<?php esc_html_e( 'Co plugin umí (aktuální stav)', 'slovnik-a-feedy' ); ?>
 		</h2>
 		<div class="saf-docs">
 			<div class="saf-docs__col">
-				<h3><?php esc_html_e( 'Co je to CPT stream?', 'slovnik-a-feedy' ); ?></h3>
-				<p><?php esc_html_e( 'Plugin registruje vlastní typ příspěvku (CPT) „glossary", který funguje jako samostatný blog – má vlastní archiv, single stránky i RSS feedy, ale je zcela oddělen od klasických příspěvků.', 'slovnik-a-feedy' ); ?></p>
-
-				<h3><?php esc_html_e( 'Proč jsou feedy důležité?', 'slovnik-a-feedy' ); ?></h3>
-				<p><?php esc_html_e( 'RSS feed umožňuje napojit obsah na Zapier, Make, IFTTT nebo vlastní skripty. Každé písmeno A–Z má vlastní feed, takže lze automatizovat i filtrovací scénáře.', 'slovnik-a-feedy' ); ?></p>
+				<h3>📥 <?php esc_html_e( 'Import obsahu', 'slovnik-a-feedy' ); ?></h3>
+				<ul style="margin:0;padding-left:16px;font-size:13px;color:#555;line-height:1.8">
+					<li><?php esc_html_e( 'CSV, XML, Google Sheets (auto-konverze URL)', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Přejmenování maker (snake_case), aliasy (kw, sug_url)', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Jeden sloupec → více polí pluginu (title + slug + focus KW)', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Gutenberg šablona s makry {{makro}} editovatelná vizuálně', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Upsert bez duplicit (_saf_external_id), Rank Math podmíněný zápis', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Dry-run, batch pro velké soubory (WP-Cron), session 7 dní', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Historie importů + resume nedokončeného importu', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Import presety (uložené nastavení pro opakování)', 'slovnik-a-feedy' ); ?></li>
+				</ul>
 			</div>
 			<div class="saf-docs__col">
-				<h3><?php esc_html_e( 'Elementor Theme Builder', 'slovnik-a-feedy' ); ?></h3>
-				<p><?php esc_html_e( 'CPT je plně kompatibilní s Elementorem. V Theme Builderu vytvoř šablonu pro „Archiv" nebo „Singl příspěvek" a nastav podmínku: Post Type → Pojmy (glossary).', 'slovnik-a-feedy' ); ?></p>
-
-				<h3><?php esc_html_e( 'Rank Math SEO', 'slovnik-a-feedy' ); ?></h3>
-				<p><?php esc_html_e( 'Plugin automaticky přidává CPT do Rank Math sitemapy a na single stránkách generuje DefinedTerm schema.org markup pro lepší pochopení obsahu Googlem.', 'slovnik-a-feedy' ); ?></p>
+				<h3>📊 <?php esc_html_e( 'Streamy & SEO', 'slovnik-a-feedy' ); ?></h3>
+				<ul style="margin:0;padding-left:16px;font-size:13px;color:#555;line-height:1.8">
+					<li><?php esc_html_e( 'Více CPT streamů (slovníček, blog, katalog…)', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'RSS/Atom feedy pro každý stream + taxonomie A–Z + kategorie', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Rank Math sitemap, DefinedTerm schema.org', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Elementor & Crocoblock/JetEngine kompatibilita', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'REST API pro každý stream (Gutenberg + Elementor Loop)', 'slovnik-a-feedy' ); ?></li>
+				</ul>
+				<h3 style="margin-top:12px">📈 <?php esc_html_e( 'Analytics', 'slovnik-a-feedy' ); ?></h3>
+				<ul style="margin:0;padding-left:16px;font-size:13px;color:#555;line-height:1.8">
+					<li><?php esc_html_e( 'Sledování zobrazení, kliknutí, průměrné doby na stránce', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Top 10 nejlepších / Bottom 10 nejslabších stránek', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Trend vs. předchozí období, sparklines, filtry', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Boti filtrováni, admini volitelně (Nastavení)', 'slovnik-a-feedy' ); ?></li>
+				</ul>
 			</div>
 			<div class="saf-docs__col">
-				<h3><?php esc_html_e( 'Přepisovací pravidla', 'slovnik-a-feedy' ); ?></h3>
-				<p><?php esc_html_e( 'Pokud archiv nebo feed nefunguje, přejdi do Nastavení → Permalinks a klikni na Uložit. Tím se přegenerují přepisovací pravidla.', 'slovnik-a-feedy' ); ?></p>
-				<a href="<?php echo esc_url( admin_url( 'options-permalink.php' ) ); ?>" class="button button-secondary">
-					<?php esc_html_e( 'Přejít na Permalinks', 'slovnik-a-feedy' ); ?>
+				<h3>⚠️ <?php esc_html_e( 'Připravuje se', 'slovnik-a-feedy' ); ?></h3>
+				<ul style="margin:0;padding-left:16px;font-size:13px;color:#888;line-height:1.8">
+					<li><?php esc_html_e( 'Export CSV/XML (round-trip)', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Plánovaný re-import z Google Sheets (Cron)', 'slovnik-a-feedy' ); ?></li>
+					<li><?php esc_html_e( 'Google Sheets API v4 (OAuth, soukromé sheety)', 'slovnik-a-feedy' ); ?></li>
+				</ul>
+				<h3 style="margin-top:12px">🔧 <?php esc_html_e( 'Rychlé tipy', 'slovnik-a-feedy' ); ?></h3>
+				<p style="font-size:12px;color:#666">
+					<?php esc_html_e( 'Nový stream nebo feed nefunguje?', 'slovnik-a-feedy' ); ?><br>
+				</p>
+				<a href="<?php echo esc_url( admin_url( 'options-permalink.php' ) ); ?>" class="button button-secondary" style="font-size:12px">
+					<?php esc_html_e( '→ Nastavení → Permalinks → Uložit', 'slovnik-a-feedy' ); ?>
 				</a>
 			</div>
 		</div>

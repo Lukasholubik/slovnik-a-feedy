@@ -97,6 +97,32 @@ $error    = $view_data['error'] ?? '';
 				</table>
 			</div>
 
+			<!-- Analytics -->
+			<div class="saf-panel">
+				<h2 class="saf-panel__title">
+					<span class="dashicons dashicons-chart-line"></span>
+					<?php esc_html_e( 'Analytics & Sledování', 'slovnik-a-feedy' ); ?>
+				</h2>
+				<table class="form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Sledovat přihlášené adminy', 'slovnik-a-feedy' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="track_admins" value="1"
+									<?php checked( $settings['track_admins'] ?? '0', '1' ); ?>>
+								<?php esc_html_e( 'Zaznamenávat zobrazení i pro přihlášené administrátory', 'slovnik-a-feedy' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Výchozí: vypnuto (běžná návštěvnost admina by zkreslovala statistiky). Zapni jen pro testování nebo pokud chceš sledovat i vlastní návštěvy.', 'slovnik-a-feedy' ); ?></p>
+						</td>
+					</tr>
+				</table>
+				<p>
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-analytics' ) ); ?>" class="button">
+						<?php esc_html_e( 'Otevřít Analytics', 'slovnik-a-feedy' ); ?>
+					</a>
+				</p>
+			</div>
+
 			<!-- Logy -->
 			<div class="saf-panel">
 				<h2 class="saf-panel__title">

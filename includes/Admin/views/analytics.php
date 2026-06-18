@@ -10,34 +10,36 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use SlovnikAFeedy\Admin\AnalyticsPage;
+use SlovnikAFeedy\StreamManager;
 
-/**
- * Proměnné předané z AnalyticsPage::render():
- * @var string  $range          Počet dní (7/30/90/365)
- * @var string  $from           Od (Y-m-d)
- * @var string  $to             Do (Y-m-d)
- * @var string  $cpt            Filtr stream CPT
- * @var string  $order          views|clicks
- * @var string  $dir            ASC|DESC
- * @var int     $paged
- * @var array   $summary        {views, clicks, posts}
- * @var array   $prev_summary
- * @var array   $series         [{date, views, clicks}]
- * @var array   $pages          [{post_id, title, slug, cpt, views, clicks}]
- * @var int     $total_pages_count
- * @var array   $sparklines     post_id => [int]
- * @var array   $streams        StreamManager::get_all()
- */
+// Proměnné z AnalyticsPage::render().
+$range           = $range           ?? '30';
+$from            = $from            ?? '';
+$to              = $to              ?? '';
+$cpt             = $cpt             ?? '';
+$order           = $order           ?? 'views';
+$dir             = $dir             ?? 'DESC';
+$paged           = $paged           ?? 1;
+$summary         = $summary         ?? [ 'views' => 0, 'clicks' => 0, 'posts' => 0 ];
+$prev_summary    = $prev_summary    ?? [ 'views' => 0, 'clicks' => 0 ];
+$series          = $series          ?? [];
+$pages           = $pages           ?? [];
+$total_pages_count = $total_pages_count ?? 0;
+$sparklines      = $sparklines      ?? [];
+$streams         = $streams         ?? [];
+$top_pages       = $top_pages       ?? [];
+$bottom_pages    = $bottom_pages    ?? [];
+$tracking_active = $tracking_active ?? false;
 
-// Trend výpočet (+/- % vs předchozí období).
-$trend_views  = $prev_summary['views']  > 0
-	? round( ( ( $summary['views']  - $prev_summary['views']  ) / $prev_summary['views']  ) * 100, 1 )
-	: ( $summary['views'] > 0 ? 100 : 0 );
-$trend_clicks = $prev_summary['clicks'] > 0
-	? round( ( ( $summary['clicks'] - $prev_summary['clicks'] ) / $prev_summary['clicks'] ) * 100, 1 )
-	: ( $summary['clicks'] > 0 ? 100 : 0 );
+// Trend vs. předchozí období.
+$t = static function ( int $now, int $prev ): float {
+	if ( $prev > 0 ) return round( ( ( $now - $prev ) / $prev ) * 100, 1 );
+	return $now > 0 ? 100.0 : 0.0;
+};
+$trend_views  = $t( $summary['views'],  $prev_summary['views']  ?? 0 );
+$trend_clicks = $t( $summary['clicks'], $prev_summary['clicks'] ?? 0 );
 
-// Předání dat grafu do JS.
+// Data pro graf.
 wp_localize_script( 'saf-analytics', 'safAnalytics', [
 	'labels' => array_column( $series, 'date' ),
 	'views'  => array_column( $series, 'views' ),
@@ -51,12 +53,21 @@ wp_localize_script( 'saf-analytics', 'safAnalytics', [
 $base_url = admin_url( 'admin.php?page=' . AnalyticsPage::PAGE_SLUG );
 $filters  = compact( 'range', 'cpt', 'order', 'dir' );
 
-function saf_filter_url( array $override, array $base, string $base_url ): string {
-	$args = array_merge( $base, $override );
-	return esc_url( add_query_arg( $args, $base_url ) );
-}
+// Pomocná formátovací funkce pro sekundy → "1 min 30 s".
+$fmt_time = static function ( int $s ): string {
+	if ( $s <= 0 ) return '—';
+	if ( $s < 60 ) return $s . ' s';
+	return floor( $s / 60 ) . ' min ' . ( $s % 60 ) . ' s';
+};
 
-$total_page_pages = (int) ceil( $total_pages_count / AnalyticsPage::PER_PAGE );
+// Šipka trendu pro inline řádky.
+$trend_icon = static function ( int $now, int $prev ): string {
+	if ( $prev <= 0 ) return '';
+	$pct = round( ( ( $now - $prev ) / $prev ) * 100 );
+	if ( $pct > 0 ) return '<span style="color:#2d7738">▲ ' . $pct . '%</span>';
+	if ( $pct < 0 ) return '<span style="color:#e94560">▼ ' . abs( $pct ) . '%</span>';
+	return '<span style="color:#888">—</span>';
+};
 ?>
 <div class="wrap saf-wrap">
 
@@ -68,32 +79,44 @@ $total_page_pages = (int) ceil( $total_pages_count / AnalyticsPage::PER_PAGE );
 			<h1 class="saf-header__title"><?php esc_html_e( 'Analytics', 'slovnik-a-feedy' ); ?></h1>
 		</div>
 		<span class="saf-header__version">
-			<?php echo esc_html( date_i18n( 'd.m.Y', strtotime( $from ) ) ); ?>
-			–
+			<?php echo esc_html( date_i18n( 'd.m.Y', strtotime( $from ) ) ); ?> –
 			<?php echo esc_html( date_i18n( 'd.m.Y', strtotime( $to ) ) ); ?>
 		</span>
 	</div>
+
+	<!-- Diagnostika: admin nesledován -->
+	<?php if ( ! $tracking_active ) : ?>
+	<div class="notice notice-warning inline saf-inline-error" style="display:flex;align-items:center;gap:10px;padding:10px 16px;margin-bottom:12px">
+		<span class="dashicons dashicons-warning" style="color:#856404;font-size:20px"></span>
+		<div>
+			<strong><?php esc_html_e( 'Přihlášení administrátoři se nesledují.', 'slovnik-a-feedy' ); ?></strong>
+			<?php esc_html_e( 'Proto vidíš nulová čísla při prohlížení jako admin. Pro testování otevři stránky pojmu v anonymním okně, nebo ', 'slovnik-a-feedy' ); ?>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-nastaveni' ) ); ?>">
+				<?php esc_html_e( 'zapni sledování adminů v Nastavení', 'slovnik-a-feedy' ); ?>
+			</a>.
+		</div>
+	</div>
+	<?php endif; ?>
 
 	<!-- Filtry -->
 	<div class="saf-analytics-filters">
 		<div class="saf-filter-group">
 			<span><?php esc_html_e( 'Období:', 'slovnik-a-feedy' ); ?></span>
 			<?php foreach ( [ '7' => '7 dní', '30' => '30 dní', '90' => '90 dní', '365' => '1 rok' ] as $val => $label ) : ?>
-			<a href="<?php echo saf_filter_url( [ 'range' => $val, 'paged' => 1 ], $filters, $base_url ); ?>"
+			<a href="<?php echo esc_url( add_query_arg( array_merge( $filters, [ 'range' => $val, 'paged' => 1 ] ), $base_url ) ); ?>"
 				class="saf-filter-btn <?php echo $range === $val ? 'saf-filter-btn--active' : ''; ?>">
 				<?php echo esc_html( $label ); ?>
 			</a>
 			<?php endforeach; ?>
 		</div>
-
 		<div class="saf-filter-group">
 			<span><?php esc_html_e( 'Stream:', 'slovnik-a-feedy' ); ?></span>
-			<a href="<?php echo saf_filter_url( [ 'cpt' => '', 'paged' => 1 ], $filters, $base_url ); ?>"
+			<a href="<?php echo esc_url( add_query_arg( array_merge( $filters, [ 'cpt' => '', 'paged' => 1 ] ), $base_url ) ); ?>"
 				class="saf-filter-btn <?php echo ! $cpt ? 'saf-filter-btn--active' : ''; ?>">
 				<?php esc_html_e( 'Všechny', 'slovnik-a-feedy' ); ?>
 			</a>
 			<?php foreach ( $streams as $stream ) : ?>
-			<a href="<?php echo saf_filter_url( [ 'cpt' => $stream['cpt'], 'paged' => 1 ], $filters, $base_url ); ?>"
+			<a href="<?php echo esc_url( add_query_arg( array_merge( $filters, [ 'cpt' => $stream['cpt'], 'paged' => 1 ] ), $base_url ) ); ?>"
 				class="saf-filter-btn <?php echo $cpt === $stream['cpt'] ? 'saf-filter-btn--active' : ''; ?>">
 				<?php echo esc_html( $stream['name'] ); ?>
 			</a>
@@ -103,48 +126,39 @@ $total_page_pages = (int) ceil( $total_pages_count / AnalyticsPage::PER_PAGE );
 
 	<!-- Summary karty -->
 	<div class="saf-cards">
-
 		<div class="saf-card">
 			<div class="saf-card__icon dashicons dashicons-visibility"></div>
 			<div class="saf-card__body">
 				<strong class="saf-card__num"><?php echo esc_html( number_format_i18n( $summary['views'] ) ); ?></strong>
 				<span class="saf-card__label"><?php esc_html_e( 'Zobrazení celkem', 'slovnik-a-feedy' ); ?></span>
 				<span class="saf-card__trend <?php echo $trend_views >= 0 ? 'saf-trend--up' : 'saf-trend--down'; ?>">
-					<?php echo $trend_views >= 0 ? '▲' : '▼'; ?>
-					<?php echo esc_html( abs( $trend_views ) ); ?>%
+					<?php echo $trend_views >= 0 ? '▲' : '▼'; ?> <?php echo esc_html( abs( $trend_views ) ); ?>%
 					<small><?php esc_html_e( 'vs. předchozí', 'slovnik-a-feedy' ); ?></small>
 				</span>
 			</div>
 		</div>
-
 		<div class="saf-card">
 			<div class="saf-card__icon dashicons dashicons-external"></div>
 			<div class="saf-card__body">
 				<strong class="saf-card__num"><?php echo esc_html( number_format_i18n( $summary['clicks'] ) ); ?></strong>
 				<span class="saf-card__label"><?php esc_html_e( 'Kliknutí celkem', 'slovnik-a-feedy' ); ?></span>
 				<span class="saf-card__trend <?php echo $trend_clicks >= 0 ? 'saf-trend--up' : 'saf-trend--down'; ?>">
-					<?php echo $trend_clicks >= 0 ? '▲' : '▼'; ?>
-					<?php echo esc_html( abs( $trend_clicks ) ); ?>%
+					<?php echo $trend_clicks >= 0 ? '▲' : '▼'; ?> <?php echo esc_html( abs( $trend_clicks ) ); ?>%
 					<small><?php esc_html_e( 'vs. předchozí', 'slovnik-a-feedy' ); ?></small>
 				</span>
 			</div>
 		</div>
-
 		<div class="saf-card">
-			<div class="saf-card__icon dashicons dashicons-chart-line"></div>
+			<div class="saf-card__icon dashicons dashicons-clock"></div>
 			<div class="saf-card__body">
-				<strong class="saf-card__num">
-					<?php
-					$avg = $summary['views'] > 0 && count( $series ) > 0
-						? round( $summary['views'] / count( $series ) )
-						: 0;
-					echo esc_html( number_format_i18n( $avg ) );
-					?>
-				</strong>
+				<?php
+				$avg_views = $summary['views'] > 0 && count( $series ) > 0
+					? round( $summary['views'] / count( $series ) ) : 0;
+				?>
+				<strong class="saf-card__num"><?php echo esc_html( number_format_i18n( $avg_views ) ); ?></strong>
 				<span class="saf-card__label"><?php esc_html_e( 'Průměr / den', 'slovnik-a-feedy' ); ?></span>
 			</div>
 		</div>
-
 		<div class="saf-card">
 			<div class="saf-card__icon dashicons dashicons-admin-page"></div>
 			<div class="saf-card__body">
@@ -152,8 +166,7 @@ $total_page_pages = (int) ceil( $total_pages_count / AnalyticsPage::PER_PAGE );
 				<span class="saf-card__label"><?php esc_html_e( 'Aktivních stránek', 'slovnik-a-feedy' ); ?></span>
 			</div>
 		</div>
-
-	</div><!-- /.saf-cards -->
+	</div>
 
 	<!-- Graf -->
 	<div class="saf-panel saf-panel--chart">
@@ -162,39 +175,116 @@ $total_page_pages = (int) ceil( $total_pages_count / AnalyticsPage::PER_PAGE );
 			<?php esc_html_e( 'Trend výkonu', 'slovnik-a-feedy' ); ?>
 		</h2>
 		<?php if ( array_sum( array_column( $series, 'views' ) ) > 0 ) : ?>
-		<div class="saf-chart-wrap">
-			<canvas id="saf-chart" height="200"></canvas>
-		</div>
+		<div class="saf-chart-wrap"><canvas id="saf-chart" height="200"></canvas></div>
 		<?php else : ?>
-		<p class="saf-empty"><?php esc_html_e( 'Žádná data pro vybrané období. Data se začnou sbírat po prvních návštěvách stránek.', 'slovnik-a-feedy' ); ?></p>
+		<p class="saf-empty"><?php esc_html_e( 'Zatím žádná data. Navštiv stránky pojmů v anonymním okně.', 'slovnik-a-feedy' ); ?></p>
 		<?php endif; ?>
 	</div>
 
-	<!-- Tabulka stránek -->
+	<!-- Top 10 + Bottom 10 (vedle sebe) -->
+	<div class="saf-columns">
+
+		<!-- TOP 10 nejlepších -->
+		<div class="saf-panel">
+			<h2 class="saf-panel__title" style="color:#2d7738">
+				▲ <?php esc_html_e( 'Top 10 – nejlepší stránky', 'slovnik-a-feedy' ); ?>
+			</h2>
+			<?php if ( $top_pages ) : ?>
+			<table class="wp-list-table widefat striped" style="font-size:12px">
+				<thead><tr>
+					<th><?php esc_html_e( 'Stránka', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:70px;text-align:right"><?php esc_html_e( 'Zobr.', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:70px;text-align:right"><?php esc_html_e( 'Klik.', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:80px;text-align:right"><?php esc_html_e( 'Ø čas', 'slovnik-a-feedy' ); ?></th>
+				</tr></thead>
+				<tbody>
+				<?php foreach ( $top_pages as $i => $page ) :
+					$url = get_permalink( (int) $page->post_id );
+				?>
+				<tr>
+					<td>
+						<strong style="color:#<?php echo $i === 0 ? 'e94560' : '1a1a2e'; ?>">
+							<?php if ( $i === 0 ) : ?>🥇<?php elseif ( $i === 1 ) : ?>🥈<?php elseif ( $i === 2 ) : ?>🥉<?php else : echo ( $i + 1 ) . '.'; endif; ?>
+						</strong>
+						<?php if ( $url ) : ?>
+						<a href="<?php echo esc_url( $url ); ?>" target="_blank" title="<?php echo esc_attr( $page->title ); ?>">
+							<?php echo esc_html( mb_strimwidth( $page->title, 0, 28, '…' ) ); ?>
+						</a>
+						<?php else : ?>
+						<?php echo esc_html( mb_strimwidth( $page->title, 0, 28, '…' ) ); ?>
+						<?php endif; ?>
+					</td>
+					<td style="text-align:right"><strong><?php echo esc_html( number_format_i18n( (int) $page->views ) ); ?></strong></td>
+					<td style="text-align:right"><?php echo esc_html( number_format_i18n( (int) $page->clicks ) ); ?></td>
+					<td style="text-align:right"><?php echo esc_html( $fmt_time( (int) ( $page->avg_time ?? 0 ) ) ); ?></td>
+				</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+			<?php else : ?>
+			<p class="saf-empty"><?php esc_html_e( 'Zatím žádná data.', 'slovnik-a-feedy' ); ?></p>
+			<?php endif; ?>
+		</div>
+
+		<!-- BOTTOM 10 nejslabších -->
+		<div class="saf-panel">
+			<h2 class="saf-panel__title" style="color:#e94560">
+				▼ <?php esc_html_e( 'Bottom 10 – slabé stránky', 'slovnik-a-feedy' ); ?>
+			</h2>
+			<p class="description" style="margin-bottom:8px;font-size:11px">
+				<?php esc_html_e( 'Stránky s nejnižší návštěvností – kandidáti na aktualizaci obsahu nebo posílení interními linky.', 'slovnik-a-feedy' ); ?>
+			</p>
+			<?php if ( $bottom_pages ) : ?>
+			<table class="wp-list-table widefat striped" style="font-size:12px">
+				<thead><tr>
+					<th><?php esc_html_e( 'Stránka', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:70px;text-align:right"><?php esc_html_e( 'Zobr.', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:70px;text-align:right"><?php esc_html_e( 'Klik.', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:80px;text-align:right"><?php esc_html_e( 'Ø čas', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:60px"><?php esc_html_e( 'Akce', 'slovnik-a-feedy' ); ?></th>
+				</tr></thead>
+				<tbody>
+				<?php foreach ( $bottom_pages as $page ) :
+					$edit_url = get_edit_post_link( (int) $page->post_id );
+				?>
+				<tr>
+					<td><?php echo esc_html( mb_strimwidth( $page->title, 0, 28, '…' ) ); ?></td>
+					<td style="text-align:right"><?php echo esc_html( number_format_i18n( (int) $page->views ) ); ?></td>
+					<td style="text-align:right"><?php echo esc_html( number_format_i18n( (int) $page->clicks ) ); ?></td>
+					<td style="text-align:right"><?php echo esc_html( $fmt_time( (int) ( $page->avg_time ?? 0 ) ) ); ?></td>
+					<td>
+						<?php if ( $edit_url ) : ?>
+						<a href="<?php echo esc_url( $edit_url ); ?>" class="button button-small">✏</a>
+						<?php endif; ?>
+					</td>
+				</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+			<?php else : ?>
+			<p class="saf-empty"><?php esc_html_e( 'Zatím žádná data.', 'slovnik-a-feedy' ); ?></p>
+			<?php endif; ?>
+		</div>
+
+	</div><!-- /.saf-columns -->
+
+	<!-- Všechny stránky – kompletní tabulka s řazením -->
 	<div class="saf-panel">
 		<div class="saf-panel-header">
 			<h2 class="saf-panel__title">
 				<span class="dashicons dashicons-list-view"></span>
-				<?php
-				printf(
-					esc_html__( 'Stránky (%d)', 'slovnik-a-feedy' ),
-					esc_html( $total_pages_count )
-				);
-				?>
+				<?php printf( esc_html__( 'Všechny stránky (%d)', 'slovnik-a-feedy' ), esc_html( $total_pages_count ) ); ?>
 			</h2>
 			<div class="saf-sort-links">
 				<span><?php esc_html_e( 'Řadit:', 'slovnik-a-feedy' ); ?></span>
 				<?php
 				$next_dir = $dir === 'DESC' ? 'asc' : 'desc';
-				foreach ( [ 'views' => 'Zobrazení', 'clicks' => 'Kliknutí' ] as $col => $label ) :
-					$is_active = $order === $col;
+				foreach ( [ 'views' => 'Zobrazení', 'clicks' => 'Kliknutí', 'avg_time' => 'Ø Čas' ] as $col => $lbl ) :
+					$active = $order === $col;
 				?>
-				<a href="<?php echo saf_filter_url( [ 'order' => $col, 'dir' => $is_active ? $next_dir : 'desc', 'paged' => 1 ], $filters, $base_url ); ?>"
-					class="saf-sort-btn <?php echo $is_active ? 'saf-sort-btn--active' : ''; ?>">
-					<?php echo esc_html( $label ); ?>
-					<?php if ( $is_active ) : ?>
-						<?php echo $dir === 'DESC' ? '▼' : '▲'; ?>
-					<?php endif; ?>
+				<a href="<?php echo esc_url( add_query_arg( array_merge( $filters, [ 'order' => $col, 'dir' => $active ? $next_dir : 'desc', 'paged' => 1 ] ), $base_url ) ); ?>"
+					class="saf-sort-btn <?php echo $active ? 'saf-sort-btn--active' : ''; ?>">
+					<?php echo esc_html( $lbl ); ?><?php if ( $active ) echo $dir === 'DESC' ? ' ▼' : ' ▲'; ?>
 				</a>
 				<?php endforeach; ?>
 			</div>
@@ -204,19 +294,20 @@ $total_page_pages = (int) ceil( $total_pages_count / AnalyticsPage::PER_PAGE );
 		<table class="wp-list-table widefat fixed striped saf-analytics-table">
 			<thead>
 				<tr>
-					<th class="column-title"><?php esc_html_e( 'Stránka', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:120px"><?php esc_html_e( 'Stream', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:90px" class="saf-num-col"><?php esc_html_e( 'Zobrazení', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:90px" class="saf-num-col"><?php esc_html_e( 'Kliknutí', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:60px" class="saf-num-col"><?php esc_html_e( 'CTR', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:100px"><?php esc_html_e( 'Trend (14 dní)', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:80px"><?php esc_html_e( 'Akce', 'slovnik-a-feedy' ); ?></th>
+					<th><?php esc_html_e( 'Stránka / URL', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:100px"><?php esc_html_e( 'Stream', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:80px;text-align:right"><?php esc_html_e( 'Zobrazení', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:70px;text-align:right"><?php esc_html_e( 'Kliknutí', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:55px;text-align:right"><?php esc_html_e( 'CTR', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:80px;text-align:right"><?php esc_html_e( 'Ø Čas', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:90px"><?php esc_html_e( 'Trend 14d', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:55px"><?php esc_html_e( 'Akce', 'slovnik-a-feedy' ); ?></th>
 				</tr>
 			</thead>
 			<tbody>
 			<?php foreach ( $pages as $page ) :
-				$ctr      = $page->views > 0 ? round( ( $page->clicks / $page->views ) * 100, 1 ) : 0;
-				$stream   = \SlovnikAFeedy\StreamManager::find_by_cpt( $page->cpt );
+				$ctr       = $page->views > 0 ? round( ( $page->clicks / $page->views ) * 100, 1 ) : 0;
+				$stream    = StreamManager::find_by_cpt( $page->cpt );
 				$sparkline = wp_json_encode( $sparklines[ $page->post_id ] ?? [] );
 				$post_url  = get_permalink( (int) $page->post_id );
 				$edit_url  = get_edit_post_link( (int) $page->post_id );
@@ -232,27 +323,21 @@ $total_page_pages = (int) ceil( $total_pages_count / AnalyticsPage::PER_PAGE );
 						<?php echo esc_html( $page->title ); ?>
 						<?php endif; ?>
 					</strong>
-					<br>
-					<span class="saf-url-slug">/<?php echo esc_html( $page->slug ); ?>/</span>
+					<br><span class="saf-url-slug">/<?php echo esc_html( $page->slug ); ?>/</span>
 				</td>
 				<td>
 					<?php if ( $stream ) : ?>
-					<span class="saf-badge saf-badge--info"><?php echo esc_html( $stream['name'] ); ?></span>
-					<?php else : ?>
-					<span style="color:#999"><?php echo esc_html( $page->cpt ); ?></span>
+					<span class="saf-badge saf-badge--info" style="font-size:10px"><?php echo esc_html( $stream['name'] ); ?></span>
 					<?php endif; ?>
 				</td>
-				<td class="saf-num-col"><strong><?php echo esc_html( number_format_i18n( (int) $page->views ) ); ?></strong></td>
-				<td class="saf-num-col"><?php echo esc_html( number_format_i18n( (int) $page->clicks ) ); ?></td>
-				<td class="saf-num-col"><?php echo esc_html( $ctr ); ?>%</td>
-				<td>
-					<div data-sparkline="<?php echo esc_attr( $sparkline ); ?>"></div>
-				</td>
+				<td style="text-align:right"><strong><?php echo esc_html( number_format_i18n( (int) $page->views ) ); ?></strong></td>
+				<td style="text-align:right"><?php echo esc_html( number_format_i18n( (int) $page->clicks ) ); ?></td>
+				<td style="text-align:right"><?php echo esc_html( $ctr ); ?>%</td>
+				<td style="text-align:right"><?php echo esc_html( $fmt_time( (int) ( $page->avg_time ?? 0 ) ) ); ?></td>
+				<td><div data-sparkline="<?php echo esc_attr( $sparkline ); ?>"></div></td>
 				<td>
 					<?php if ( $edit_url ) : ?>
-					<a href="<?php echo esc_url( $edit_url ); ?>" class="button button-small">
-						<?php esc_html_e( 'Upravit', 'slovnik-a-feedy' ); ?>
-					</a>
+					<a href="<?php echo esc_url( $edit_url ); ?>" class="button button-small">✏</a>
 					<?php endif; ?>
 				</td>
 			</tr>
@@ -260,20 +345,19 @@ $total_page_pages = (int) ceil( $total_pages_count / AnalyticsPage::PER_PAGE );
 			</tbody>
 		</table>
 
-		<!-- Stránkování -->
-		<?php if ( $total_page_pages > 1 ) : ?>
+		<?php
+		$total_page_pages = (int) ceil( $total_pages_count / AnalyticsPage::PER_PAGE );
+		if ( $total_page_pages > 1 ) : ?>
 		<div class="tablenav bottom">
 			<div class="tablenav-pages">
-				<?php
-				echo wp_kses_post( paginate_links( [
-					'base'      => add_query_arg( 'paged', '%#%', add_query_arg( $filters, $base_url ) ),
+				<?php echo wp_kses_post( paginate_links( [
+					'base'      => add_query_arg( array_merge( $filters, [ 'paged' => '%#%' ] ), $base_url ),
 					'format'    => '',
 					'current'   => $paged,
 					'total'     => $total_page_pages,
 					'prev_text' => '&laquo;',
 					'next_text' => '&raquo;',
-				] ) );
-				?>
+				] ) ); ?>
 			</div>
 			<div class="displaying-num">
 				<?php printf( esc_html__( '%d stránek celkem', 'slovnik-a-feedy' ), esc_html( $total_pages_count ) ); ?>
@@ -282,38 +366,19 @@ $total_page_pages = (int) ceil( $total_pages_count / AnalyticsPage::PER_PAGE );
 		<?php endif; ?>
 
 		<?php else : ?>
-		<p class="saf-empty">
-			<?php esc_html_e( 'Žádná data. Statistiky se sbírají automaticky od první návštěvy stránek slovníčku.', 'slovnik-a-feedy' ); ?>
-		</p>
-		<div class="notice notice-info inline">
-			<p>
-				<strong><?php esc_html_e( 'Jak spustit sledování?', 'slovnik-a-feedy' ); ?></strong>
-				<?php esc_html_e( 'Navštiv libovolnou stránku slovníčku (jako nepřihlášený návštěvník nebo v anonymním okně). Plugin automaticky zaznamená zobrazení.', 'slovnik-a-feedy' ); ?>
+		<div style="padding:20px;text-align:center">
+			<p class="saf-empty"><?php esc_html_e( 'Zatím žádná data pro vybrané období.', 'slovnik-a-feedy' ); ?></p>
+			<p style="font-size:13px;color:#555">
+				<?php esc_html_e( 'Jak spustit sledování:', 'slovnik-a-feedy' ); ?><br>
+				<strong>1.</strong> <?php esc_html_e( 'Otevři stránku pojmu v anonymním okně (nebo zapni "Sledovat adminy" v Nastavení)', 'slovnik-a-feedy' ); ?><br>
+				<strong>2.</strong> <?php esc_html_e( 'Zobrazení se zaznamenají automaticky', 'slovnik-a-feedy' ); ?><br>
+				<strong>3.</strong> <?php esc_html_e( 'Klikni na libovolný odkaz na stránce → zaznamená se kliknutí', 'slovnik-a-feedy' ); ?>
 			</p>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-nastaveni' ) ); ?>" class="button">
+				<?php esc_html_e( 'Otevřít Nastavení', 'slovnik-a-feedy' ); ?>
+			</a>
 		</div>
 		<?php endif; ?>
-	</div>
-
-	<!-- Dokumentace -->
-	<div class="saf-panel saf-panel--full">
-		<h2 class="saf-panel__title">
-			<span class="dashicons dashicons-info"></span>
-			<?php esc_html_e( 'O statistikách', 'slovnik-a-feedy' ); ?>
-		</h2>
-		<div class="saf-docs">
-			<div class="saf-docs__col">
-				<h3><?php esc_html_e( 'Co sledujeme', 'slovnik-a-feedy' ); ?></h3>
-				<p><?php esc_html_e( 'Zobrazení = každá návštěva stránky pojmu (filtrujeme boty, nepočítáme administrátory). Kliknutí = uživatel kliknul na odkaz a opustil stránku.', 'slovnik-a-feedy' ); ?></p>
-			</div>
-			<div class="saf-docs__col">
-				<h3><?php esc_html_e( 'CTR', 'slovnik-a-feedy' ); ?></h3>
-				<p><?php esc_html_e( 'Click-through rate = kliknutí / zobrazení × 100. Vyšší CTR = obsah motivuje k akci (kliknutí na odkaz, přechod na jinou stránku).', 'slovnik-a-feedy' ); ?></p>
-			</div>
-			<div class="saf-docs__col">
-				<h3><?php esc_html_e( 'Trend (sparkline)', 'slovnik-a-feedy' ); ?></h3>
-				<p><?php esc_html_e( 'Mini graf posledních 14 dní. Rostoucí trend = obsah získává návštěvnost. Klesající = může být vhodné obsah aktualizovat nebo podpořit interními linky.', 'slovnik-a-feedy' ); ?></p>
-			</div>
-		</div>
 	</div>
 
 </div><!-- /.wrap -->

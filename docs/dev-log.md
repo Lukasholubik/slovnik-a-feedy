@@ -4,6 +4,39 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-18 – Audit + doplnění chybějících funkcí
+
+### Analytics (kompletní redesign)
+- `class-tracker.php` – sledování doby na stránce (`time_total`, `time_count`), REST `/saf/v1/time`
+- `class-analytics-store.php` – `avg_time` výpočet v `get_pages()`, řazení i dle avg_time
+- `class-analytics-page.php` – přidány `$top_pages`, `$bottom_pages`, `$tracking_active`
+- `views/analytics.php` – kompletní přepis: diagnostika (admin nesledován), Top 10, Bottom 10, avg_time sloupec, trendy per řádek, prázdný stav s návodem
+- `class-settings.php` + `views/settings.php` – přidán `saf_track_admins` přepínač
+- `saf-tracker.js` – `pagehide`/`beforeunload` odesílá dobu strávenu na stránce
+
+### Export CSV/XML (Fáze 5)
+- `Exporter/class-exporter.php` – export pojmů do CSV (s UTF-8 BOM) nebo XML, round-trip schéma
+- `views/export.php` – export stránka s výběrem streamu a formátu
+- `class-admin-menu.php` – přidáno submenu Export
+
+### Import vylepšení
+- Více polí pluginu pro jeden sloupec (multi-select, `mapping[col][]`)
+- `Mapper::map_row()` – podpora array field_slug
+- `class-settings.php` – `get_import_presets()`, `save_import_preset()`, source_url v presetu
+- `class-import-session-registry.php` – registr nedokončených importů, resume, mazání
+- `views/import.php` – nedokončené importy panel, historie, error v panelu (ne na vrchu)
+- `saf-admin.js` – WP notices přesun nad .saf-header, auto-scroll na chybu
+
+### Dashboard
+- Aktualizována sekce "Co plugin umí" (aktuální stav místo "Připravuje se")
+- Navigační grid – jasné zkratky ke klíčovým sekcím
+
+### Bezpečnostní audit
+- Všechny nové formuláře mají nonce + capability check
+- Export: `current_user_can('manage_glossary')` před stažením
+
+---
+
 ## 2026-06-18 – Fáze 2: Import – CSV, XML, Template Engine, Upsert, Admin wizard
 
 **Co bylo uděláno:**

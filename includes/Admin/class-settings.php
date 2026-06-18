@@ -77,6 +77,9 @@ final class Settings {
 		self::update( 'log_retention', $log_retention );
 
 		self::update( 'force_overwrite', empty( $post['force_overwrite'] ) ? '0' : '1' );
+		self::update( 'track_admins',    empty( $post['track_admins'] )    ? '0' : '1' );
+		// Synchronizuj s Tracker options.
+		update_option( 'saf_track_admins', ! empty( $post['track_admins'] ) );
 	}
 
 	// -------------------------------------------------------------------------

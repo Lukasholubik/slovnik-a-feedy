@@ -83,6 +83,15 @@ final class AdminMenu {
 
 		add_submenu_page(
 			self::MENU_SLUG,
+			__( 'Export', 'slovnik-a-feedy' ),
+			__( 'Export', 'slovnik-a-feedy' ),
+			self::CAP,
+			'slovnik-a-feedy-export',
+			[ $this, 'render_export' ]
+		);
+
+		add_submenu_page(
+			self::MENU_SLUG,
 			__( 'Nastavení', 'slovnik-a-feedy' ),
 			__( 'Nastavení', 'slovnik-a-feedy' ),
 			self::CAP,
@@ -139,6 +148,36 @@ final class AdminMenu {
 			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
 		}
 		require SAF_DIR . 'includes/Admin/views/dashboard.php';
+	}
+
+	public function render_export(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( esc_html__( 'Nedostatečná oprávnění.', 'slovnik-a-feedy' ) );
+		}
+
+		// Zpracuj POST download.
+		if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['saf_export_nonce'] ) ) {
+			if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['saf_export_nonce'] ) ), 'saf_export' ) ) {
+				wp_die( esc_html__( 'Neplatný token.', 'slovnik-a-feedy' ) );
+			}
+
+			$stream_id = sanitize_key( $_POST['stream_id'] ?? '' );
+			$format    = sanitize_key( $_POST['format']    ?? 'csv' );
+			$stream    = \SlovnikAFeedy\StreamManager::get( $stream_id );
+
+			if ( $stream ) {
+				$exporter = new \SlovnikAFeedy\Exporter\Exporter( $stream );
+				if ( $format === 'xml' ) {
+					$exporter->export_xml();
+				} else {
+					$exporter->export_csv();
+				}
+				exit;
+			}
+		}
+
+		$streams = \SlovnikAFeedy\StreamManager::get_all();
+		require SAF_DIR . 'includes/Admin/views/export.php';
 	}
 
 	public function render_templates(): void {
