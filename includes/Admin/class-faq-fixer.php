@@ -21,7 +21,13 @@ final class FaqFixer {
 
 	/**
 	 * Opraví FAQ bloky v jednom příspěvku.
-	 * Odstraní HTML content mezi block komentáři – Rank Math ho vygeneruje sám.
+	 * Vygeneruje správné HTML z JSON atributů – přesně tak jak Rank Math save() funkce.
+	 *
+	 * Rank Math FAQ block save() funkce (z blocks.js):
+	 * <div class="rank-math-faq-item">
+	 *   <h3 class="rank-math-question">{title}</h3>
+	 *   <div class="rank-math-answer">{content}</div>
+	 * </div>
 	 *
 	 * @return int  Počet opravených bloků.
 	 */
@@ -31,39 +37,60 @@ final class FaqFixer {
 			return 0;
 		}
 
-		$original = $post->post_content;
+		$original  = $post->post_content;
+		$fixed_n   = 0;
 
-		// Odstraní HTML content uvnitř rank-math FAQ bloku a ponechá jen JSON komentáře.
 		$fixed = (string) preg_replace_callback(
-			'/(<!--\s*wp:rank-math\/faq-block[^>]*-->)\s*([\s\S]*?)\s*(<!--\s*\/wp:rank-math\/faq-block\s*-->)/i',
-			static function ( array $m ): string {
+			'/(<!--\s*wp:rank-math\/faq-block\s+(\{.*?\})\s*-->)\s*[\s\S]*?\s*(<!--\s*\/wp:rank-math\/faq-block\s*-->)/i',
+			static function ( array $m ) use ( &$fixed_n ): string {
 				$opening = trim( $m[1] );
+				$json    = $m[2];
 				$closing = trim( $m[3] );
-				// Ověř, že JSON v block komentáři je platný.
-				preg_match( '/<!--\s*wp:rank-math\/faq-block\s+(\{.*?\})\s*-->/si', $opening, $j );
-				if ( ! empty( $j[1] ) && json_decode( $j[1] ) === null ) {
-					// JSON je poškozený – neupravuj.
+
+				// Parsuj JSON z block komentáře.
+				$attrs = json_decode( $json, true );
+				if ( ! $attrs || json_last_error() !== JSON_ERROR_NONE ) {
+					return $m[0]; // Poškozený JSON – neupravuj.
+				}
+
+				$questions = $attrs['questions'] ?? [];
+				if ( empty( $questions ) ) {
 					return $m[0];
 				}
-				// Vrať jen otevírací + zavírací komentář bez HTML obsahu.
-				return $opening . "\n" . $closing;
+
+				// Vygeneruj HTML identické s Rank Math save() funkce.
+				$inner = '';
+				foreach ( $questions as $q ) {
+					if ( isset( $q['visible'] ) && ! $q['visible'] ) {
+						continue; // Skryté položky nepřidávej.
+					}
+					$tag     = isset( $attrs['titleWrapper'] ) ? esc_attr( $attrs['titleWrapper'] ) : 'h3';
+					$title   = wp_kses_post( $q['title']   ?? '' );
+					$content = wp_kses_post( $q['content'] ?? '' );
+					$inner  .= '<div class="rank-math-faq-item">';
+					$inner  .= '<' . $tag . ' class="rank-math-question">' . $title . '</' . $tag . '>';
+					$inner  .= '<div class="rank-math-answer">' . $content . '</div>';
+					$inner  .= '</div>';
+				}
+
+				$html = '<div class="wp-block-rank-math-faq-block">' . $inner . '</div>';
+
+				$fixed_n++;
+				return $opening . "\n" . $html . "\n" . $closing;
 			},
 			$original
 		);
 
-		if ( $fixed === $original ) {
-			return 0; // Žádná změna.
+		if ( $fixed === $original || $fixed_n === 0 ) {
+			return 0;
 		}
 
-		// Ulož bez wp_kses_post – blokové komentáře musí zůstat neporušené.
 		wp_update_post( [
 			'ID'           => $post_id,
 			'post_content' => $fixed,
 		] );
 
-		return substr_count( $fixed, 'wp:rank-math/faq-block' ) - substr_count( $original, 'wp:rank-math/faq-block' ) >= 0
-			? substr_count( $original, 'wp:rank-math/faq-block' )
-			: 0;
+		return $fixed_n;
 	}
 
 	/**
