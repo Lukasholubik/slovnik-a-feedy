@@ -574,15 +574,49 @@ final class ImportPage {
 			'force_overwrite' => $force_overwrite,
 		];
 
+		// Zajisti dostupnost zdrojového souboru.
+		$file_path   = $session['file_path'] ?? '';
+		$source_type = $session['source_type'] ?? 'csv';
+
+		if ( ! $file_path || ! file_exists( $file_path ) ) {
+			// Temp soubor expiroval nebo byl smazán.
+			if ( $source_type === 'gsheet' && ! empty( $session['source_url'] ) ) {
+				// Google Sheets: znovu stáhnout ze stejné URL.
+				try {
+					$upload_dir = $this->ensure_upload_dir();
+					$file_path  = $this->download_url( $session['source_url'], $upload_dir );
+					// Ulož novou cestu do session.
+					$session['file_path'] = $file_path;
+					$this->save_session( $session_id, $session );
+				} catch ( \Throwable $e ) {
+					$this->view_data['error'] = sprintf(
+						__( 'Temp soubor expiroval a automatické stažení selhalo: %s. Začni import znovu (krok 0).', 'slovnik-a-feedy' ),
+						$e->getMessage()
+					);
+					return;
+				}
+			} else {
+				// CSV/XML: soubor nelze obnovit, musí nahrát znovu.
+				$this->view_data['error'] = __( 'Zdrojový soubor expiroval a byl smazán. Vrať se na krok 0 a nahraj soubor znovu. (Google Sheets URL se obnoví automaticky.)', 'slovnik-a-feedy' );
+				return;
+			}
+		}
+
 		// Načti všechny řádky a překlíčuj na makro jména.
 		$macro_names = $session['macro_names'] ?? [];
-		$source      = $this->make_source( $session['source_type'], $session['file_path'] );
+		$source      = $this->make_source( $source_type, $file_path );
 		$rows        = [];
 		foreach ( $source->get_rows() as $row ) {
 			// Překlíčuj řádek: originální sloupce → makro jména.
 			$rows[] = $macro_names
 				? self::apply_macro_names( $row, $macro_names )
 				: $row;
+		}
+
+		// Pokud nejsou žádné řádky, vrať chybu.
+		if ( empty( $rows ) ) {
+			$this->view_data['error'] = __( 'Zdrojový soubor neobsahuje žádné řádky nebo je poškozený. Zkontroluj URL/soubor a zkus znovu.', 'slovnik-a-feedy' );
+			return;
 		}
 
 		$result = BatchRunner::start( $rows, $config );
