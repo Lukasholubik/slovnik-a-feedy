@@ -67,6 +67,7 @@ $step_labels = [
 		<p><?php echo esc_html( $notice ); ?></p>
 	</div>
 	<?php endif; ?>
+	<?php
 		$active_sessions = \SlovnikAFeedy\Admin\ImportSessionRegistry::get_active();
 		$all_sessions    = \SlovnikAFeedy\Admin\ImportSessionRegistry::get_all();
 	?>
