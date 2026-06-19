@@ -27,10 +27,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class TemplateEngine {
 
 	public function render( string $template, array $row ): string {
-		// 0. NEJDŘÍVE: zpracuj makra v Gutenberg block komentářích (JSON context).
-		//    Hodnoty musí být JSON-escapovány – jinak rozbijí JSON strukturu bloku
-		//    a Gutenberg zobrazí "Tento blok obsahuje neplatný obsah."
-		//    Pattern: "{{macro}}" uvnitř <!-- wp:... --> otevíracího komentáře.
+		// 0a. Zpracuj makra v Gutenberg block komentářích (JSON context).
+		//     "{{macro}}" → json_encode(hodnota) aby JSON zůstal validní.
 		$template = (string) preg_replace_callback(
 			'/<!--\s*wp:[a-z][^\-].*?-->/s',
 			static function ( array $m ) use ( $row ): string {
@@ -39,11 +37,31 @@ final class TemplateEngine {
 					static function ( array $n ) use ( $row ): string {
 						$macro = trim( $n[1], '{}' );
 						$val   = $row[ $macro ] ?? '';
-						// json_encode vrátí "hodnota" (s uvozovkami) – správné JSON.
 						return (string) json_encode( $val, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
 					},
 					$m[0]
 				);
+			},
+			$template
+		);
+
+		// 0b. Zpracuj makra v JSON-LD <script> blocích (application/ld+json).
+		//     Hodnoty musí být JSON-escapovány – esc_html() by rozbil JSON a způsobil
+		//     JS chybu na stránce (Elementor Loop přestane fungovat).
+		$template = (string) preg_replace_callback(
+			'/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>(.*?)<\/script>/si',
+			static function ( array $m ) use ( $row ): string {
+				$inner = (string) preg_replace_callback(
+					'/"(\{\{[\w\-]+\}\})"/',
+					static function ( array $n ) use ( $row ): string {
+						$macro = trim( $n[1], '{}' );
+						$val   = $row[ $macro ] ?? '';
+						return (string) json_encode( $val, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+					},
+					$m[1]
+				);
+				// Obnov původní wrapper <script> tag.
+				return substr( $m[0], 0, strpos( $m[0], '>' ) + 1 ) . $inner . '</script>';
 			},
 			$template
 		);
