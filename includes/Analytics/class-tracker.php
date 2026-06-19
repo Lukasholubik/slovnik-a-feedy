@@ -299,6 +299,11 @@ final class Tracker {
 	 * Bezpečné volat opakovaně – dbDelta je idempotentní.
 	 */
 	public static function ensure_table(): void {
+		// Pouze administrátoři smí spouštět ALTER TABLE.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
 		global $wpdb;
 
 		$table = $wpdb->prefix . self::TABLE;

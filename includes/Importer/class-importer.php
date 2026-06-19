@@ -205,6 +205,29 @@ final class Importer {
 			return;
 		}
 
+		// SSRF ochrana: blokuj privátní/lokální adresy a non-HTTP schémata.
+		$parsed = wp_parse_url( $value );
+		$scheme = strtolower( $parsed['scheme'] ?? '' );
+		$host   = strtolower( $parsed['host'] ?? '' );
+
+		if ( ! in_array( $scheme, [ 'http', 'https' ], true ) ) {
+			Logger::warning( sprintf( 'Thumbnail SSRF blok: schéma "%s" není povoleno.', $scheme ), 'import' );
+			return;
+		}
+
+		// Blokuj privátní IP rozsahy, localhost a cloud metadata.
+		$blocked_hosts = [ 'localhost', '127.0.0.1', '::1', '0.0.0.0', '169.254.169.254', 'metadata.google.internal' ];
+		if ( in_array( $host, $blocked_hosts, true ) ) {
+			Logger::warning( sprintf( 'Thumbnail SSRF blok: host "%s" je blokován.', $host ), 'import' );
+			return;
+		}
+
+		// Blokuj privátní IP rozsahy (10.x, 172.16-31.x, 192.168.x).
+		if ( preg_match( '/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/', $host ) ) {
+			Logger::warning( sprintf( 'Thumbnail SSRF blok: privátní IP "%s".', $host ), 'import' );
+			return;
+		}
+
 		// Zkontroluj zda URL obrázek už není v media library (deduplication).
 		global $wpdb;
 		$existing = $wpdb->get_var(

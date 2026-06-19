@@ -734,8 +734,18 @@ final class ImportPage {
 	 * @throws \RuntimeException
 	 */
 	private function download_url( string $url, string $upload_dir ): string {
-		// Whitelist hosts (SSRF ochrana).
-		$host          = wp_parse_url( $url, PHP_URL_HOST );
+		// SSRF ochrana – parsuj URL bezpečně bez userinfo bypass triku.
+		// 'https://docs.google.com@evil.com/' → host = evil.com (správně odmítne).
+		$parsed = wp_parse_url( $url );
+		$host   = strtolower( $parsed['host'] ?? '' );
+		$scheme = strtolower( $parsed['scheme'] ?? '' );
+
+		// Povolená schémata.
+		if ( ! in_array( $scheme, [ 'http', 'https' ], true ) ) {
+			throw new \RuntimeException( __( 'Povoleny jsou pouze http/https URL.', 'slovnik-a-feedy' ) );
+		}
+
+		// Whitelist hosts.
 		$allowed_hosts = [ 'docs.google.com', 'spreadsheets.google.com', 'drive.google.com' ];
 		if ( ! in_array( $host, $allowed_hosts, true ) ) {
 			throw new \RuntimeException(

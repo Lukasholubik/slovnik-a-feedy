@@ -178,7 +178,7 @@ final class Plugin {
 			// 2. JS: Skryj cokoliv s textem "License Mismatch" po 800ms
 			//    (poté co Elementor JS přesune dialog na fixed position).
 			//    Pouze display:none – žádné DOM přesuny které by způsobily React re-render.
-			echo '<script id="saf-hide-ext-js">
+			echo '<script id="saf-hide-ext-js">';
 (function(){
 	var KEYS=["License Mismatch","Reactivate License","license key doesn"];
 	function hide(el){
