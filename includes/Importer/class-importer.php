@@ -297,9 +297,11 @@ final class Importer {
 	 * Přiřadí taxonomie pojmu (písmeno A–Z, kategorie).
 	 */
 	private function assign_taxonomies( int $post_id, array $mapped ): void {
-		// Písmeno – z mapovaného pole nebo auto-detekce z titulku.
-		$letter_slug = sanitize_title( $mapped['letter'] )
-			?: Helpers::get_letter_slug( $mapped['title'] );
+		// Písmeno – priorita: namapovaný sloupec → title → slug → external_id.
+		// Není potřeba samostatný sloupec – auto-detekce z prvního znaku.
+		$letter_source = $mapped['letter'] ?: $mapped['title'] ?: $mapped['slug'] ?: $mapped['external_id'];
+		$letter_slug   = sanitize_title( $mapped['letter'] )
+			?: Helpers::get_letter_slug( $letter_source );
 
 		if ( $letter_slug && ( $this->stream['tax_letter'] ?? true ) ) {
 			$tax_letter  = StreamManager::tax_letter( $this->stream );
