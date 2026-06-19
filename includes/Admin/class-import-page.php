@@ -580,24 +580,28 @@ final class ImportPage {
 
 		if ( ! $file_path || ! file_exists( $file_path ) ) {
 			// Temp soubor expiroval nebo byl smazán.
-			if ( $source_type === 'gsheet' && ! empty( $session['source_url'] ) ) {
-				// Google Sheets: znovu stáhnout ze stejné URL.
+			// Poznámka: GSheets import ukládá source_type='csv' protože data
+			// stahuje jako CSV. Proto nekontrolujeme source_type ale source_url.
+			$source_url = $session['source_url'] ?? '';
+
+			if ( ! empty( $source_url ) ) {
+				// Je dostupná URL – stáhni znovu (funguje pro GSheets i jakoukoliv CSV URL).
 				try {
 					$upload_dir = $this->ensure_upload_dir();
-					$file_path  = $this->download_url( $session['source_url'], $upload_dir );
+					$file_path  = $this->download_url( $source_url, $upload_dir );
 					// Ulož novou cestu do session.
 					$session['file_path'] = $file_path;
 					$this->save_session( $session_id, $session );
 				} catch ( \Throwable $e ) {
 					$this->view_data['error'] = sprintf(
-						__( 'Temp soubor expiroval a automatické stažení selhalo: %s. Začni import znovu (krok 0).', 'slovnik-a-feedy' ),
+						__( 'Soubor expiroval a automatické stažení ze zdroje selhalo: %s', 'slovnik-a-feedy' ),
 						$e->getMessage()
 					);
 					return;
 				}
 			} else {
-				// CSV/XML: soubor nelze obnovit, musí nahrát znovu.
-				$this->view_data['error'] = __( 'Zdrojový soubor expiroval a byl smazán. Vrať se na krok 0 a nahraj soubor znovu. (Google Sheets URL se obnoví automaticky.)', 'slovnik-a-feedy' );
+				// CSV/XML upload – soubor nelze obnovit automaticky.
+				$this->view_data['error'] = __( 'Zdrojový soubor importu expiroval a byl smazán (temp soubory jsou dočasné). Vrať se krok zpět – nahraj soubor znovu nebo použij Google Sheets URL která se obnoví automaticky.', 'slovnik-a-feedy' );
 				return;
 			}
 		}

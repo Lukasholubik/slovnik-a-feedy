@@ -55,6 +55,10 @@ $step_labels = [
 	?>
 
 	<?php
+	// Inicializace proměnných pro historii – musí být dostupné na VŠECH krocích.
+	$active_sessions = \SlovnikAFeedy\Admin\ImportSessionRegistry::get_active();
+	$all_sessions    = \SlovnikAFeedy\Admin\ImportSessionRegistry::get_all();
+
 	// ── KROK 0 – Zdroj dat ────────────────────────────────────────────────────
 	if ( $step === 0 ) :
 		$stream_options  = \SlovnikAFeedy\StreamManager::get_options();
@@ -67,10 +71,6 @@ $step_labels = [
 		<p><?php echo esc_html( $notice ); ?></p>
 	</div>
 	<?php endif; ?>
-	<?php
-		$active_sessions = \SlovnikAFeedy\Admin\ImportSessionRegistry::get_active();
-		$all_sessions    = \SlovnikAFeedy\Admin\ImportSessionRegistry::get_all();
-	?>
 
 	<?php if ( $active_sessions ) : ?>
 	<!-- Panel nedokončených importů -->
