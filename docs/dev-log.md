@@ -4,6 +4,46 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-19 – Bugfixes, FAQ, Analytics, Import UX
+
+### Import – kritické opravy
+- **Array to string crash**: multi-makro aliasy (`kw, sug_url`) fungovaly jako PHP klíč → crash → broken FAQ JSON. Opraveno iterací přes aliasy.
+- **Re-import 0 řádků**: temp CSV soubor byl smazán → fopen selhal tiše → 0/0/0 bez chyby. Fix: auto-re-download z `source_url` (Google Sheets) nebo jasná chyba pro CSV.
+- **import.php Fatal line 154**: `$all_sessions` null na krocích 2/3 – přesunuto inicializování před `if ($step === 0)`.
+- **import.php PHP kód lekal**: chybělo `<?php` po `endif; ?>` u notice bloku.
+- **Bílá obrazovka**: `setupModalObserver()` v saf-admin.js spouštěl MutationObserver loop přes DOM insertBefore → React re-render → prázdná stránka. Odstraněno.
+- **Re-import ze šablony**: session_id chyběl v URL "Otevřít v editoru" → sidebar neukazoval nová makra. Fix: JS přidává `saf_session` + synchronní AJAX před otevřením editoru.
+
+### FAQ blok – kompletní řešení
+- **JSON encoding v block komentářích** (krok 0a): `{{macro}}` uvnitř `<!-- wp:... -->` JSON → `json_encode()` místo `esc_html()`.
+- **JSON encoding v JSON-LD skriptech** (krok 0b): `<script type="application/ld+json">` → makra JSON-encodována. Opravuje "Elementor Loop nefunguje" způsobené neplatným JSON-LD → JS error.
+- **FaqFixer tool**: Dashboard → Nástroje → tlačítko per stream. Bulk oprava existujících postů – regeneruje HTML z JSON atributů přesně jako Rank Math save().
+- **Odkaz na Gutenberg block**: `wp_kses_post()` odstraněno z `post_content` v Importeru (oříznulo block komentáře). Import nyní ukládá raw content přes `wp_insert_post()` s admin capability.
+
+### Analytics – dokončení
+- **avg_time sloupce**: `time_total`, `time_count` přidány přes `ALTER TABLE IF NOT EXISTS`. AJAX endpoint `saf_fix_analytics_table` v Dashboard.
+- **Tracking admins**: nastavení `saf_track_admins` v Nastavení. Diagnostický banner v Analytics pokud je vypnuto.
+- **AnalyticsStore**: bezpečný query pokud sloupce neexistují (`has_time_columns()`).
+- **saf-tracker.js**: `timeSent` flag – zabraňuje dvojímu odeslání doby (pagehide + beforeunload).
+- **Bottom 10 přepínač**: toggle "zobrazit i s 0 zobrazeními" / "jen 1+".
+- **Analytics view přepis**: Top 10, Bottom 10, avg_time sloupec, diagnostiky, prázdný stav s návodem.
+
+### Notifikace
+- `saf-admin.js`: odstraněny veškeré DOM přesuny (způsobovaly bílou obrazovku). Ponechán jen auto-scroll na `.saf-inline-error`.
+- `admin_head`: CSS + JS skrytí Elementor License Mismatch na SAF stránkách (text-based detection po 800ms).
+
+### Ostatní
+- **Export CSV/XML**: `Exporter/class-exporter.php` + Admin stránka Export.
+- **Thumbnail mapping**: Mapper::FIELDS + `set_thumbnail()` v Importeru (URL → media_sideload_image).
+- **Preset + source_url**: preset importu ukládá URL Google Sheetu pro opakované použití.
+- **Import historie – Znovu**: tlačítko ↻ v historii, obnoví session nebo předvyplní URL.
+- **A-Z auto-detekce**: fallback na slug/external_id pokud title není namapován.
+- **Multi-pole per sloupec**: `mapping[col][]` → Mapper podporuje array field_slug.
+- **FaqFixer**: Dashboard → Nástroje → bulk fix FAQ bloků.
+- **Makra sidebar v Gutenberg**: `saf_tpl_macros_{template_id}` option, synchronní update před otevřením editoru.
+
+---
+
 ## 2026-06-18 – Audit + doplnění chybějících funkcí
 
 ### Analytics (kompletní redesign)
