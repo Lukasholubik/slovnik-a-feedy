@@ -178,36 +178,16 @@ final class Plugin {
 			// 2. JS: Skryj cokoliv s textem "License Mismatch" po 800ms
 			//    (poté co Elementor JS přesune dialog na fixed position).
 			//    Pouze display:none – žádné DOM přesuny které by způsobily React re-render.
-			echo '<script id="saf-hide-ext-js">';
+			?>
+<script id="saf-hide-ext-js">
 (function(){
-	var KEYS=["License Mismatch","Reactivate License","license key doesn"];
-	function hide(el){
-		if(!el||!el.textContent)return;
-		for(var i=0;i<KEYS.length;i++){
-			if(el.textContent.indexOf(KEYS[i])!==-1){
-				el.style.display="none";
-				return;
-			}
-		}
-	}
-	function scan(){
-		// Přímí potomci body (Elementor React portal).
-		Array.from(document.body.children).forEach(function(el){
-			if(el.id==="wpwrap"||el.id==="wpadminbar")return;
-			hide(el);
-		});
-		// Sourozenci .saf-wrap v #wpbody-content (standardní WP notice).
-		var wbc=document.getElementById("wpbody-content");
-		if(wbc)Array.from(wbc.children).forEach(function(el){
-			if(el.classList&&el.classList.contains("saf-wrap"))return;
-			hide(el);
-		});
-	}
-	// 800ms = po Elementor JS, 1500ms = fallback.
-	setTimeout(scan,800);
-	setTimeout(scan,1500);
-})();
-</script>' . "\n";
+var KEYS=["License Mismatch","Reactivate License","license key doesn"];
+function hide(el){if(!el||!el.textContent)return;for(var i=0;i<KEYS.length;i++){if(el.textContent.indexOf(KEYS[i])!==-1){el.style.display="none";return;}}}
+function scan(){Array.from(document.body.children).forEach(function(el){if(el.id==="wpwrap"||el.id==="wpadminbar")return;hide(el);});var wbc=document.getElementById("wpbody-content");if(wbc)Array.from(wbc.children).forEach(function(el){if(el.classList&&el.classList.contains("saf-wrap"))return;hide(el);});}
+setTimeout(scan,800);setTimeout(scan,1500);
+}());
+</script>
+			<?php
 		} );
 
 		// Admin UI.
