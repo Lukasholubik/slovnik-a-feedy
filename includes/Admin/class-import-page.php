@@ -553,8 +553,15 @@ final class ImportPage {
 		$original_mapping   = $session['mapping']     ?? [];
 		$translated_mapping = [];
 		foreach ( $original_mapping as $orig_col => $field ) {
-			$macro_key = $macro_names[ $orig_col ] ?? $orig_col;
-			$translated_mapping[ $macro_key ] = $field;
+			$macro_val = $macro_names[ $orig_col ] ?? $orig_col;
+			// Pokud je macro_val pole (multi-makro aliasy), použij první alias jako klíč.
+			// Pole jako PHP klíč → "Array to string conversion" crash.
+			$keys = is_array( $macro_val ) ? $macro_val : [ $macro_val ];
+			foreach ( $keys as $macro_key ) {
+				if ( $macro_key ) {
+					$translated_mapping[ (string) $macro_key ] = $field;
+				}
+			}
 		}
 
 		$config = [
