@@ -808,21 +808,47 @@ $step_labels = [
 	<script>
 	(function () {
 		// Aktualizuj Edit URL + hidden field při změně selectu šablony.
-		var sel     = document.getElementById('saf-template-select');
-		var editBtn = document.getElementById('saf-edit-template-btn');
-		var idField = document.getElementById('saf-template-id-field');
+		var sel       = document.getElementById('saf-template-select');
+		var editBtn   = document.getElementById('saf-edit-template-btn');
+		var idField   = document.getElementById('saf-template-id-field');
+		// Session ID aktuálního importu – pro předání nových maker do Gutenberg sidebaru.
+		var sessionId = <?php echo wp_json_encode( $session_id ); ?>;
 
 		if (sel) {
 			sel.addEventListener('change', function () {
 				var opt = sel.options[sel.selectedIndex];
 				if (editBtn) {
-					editBtn.href        = opt.dataset.edit || '#';
+					var editUrl = opt.dataset.edit || '#';
+					// Přidej saf_session do URL – sidebar tak načte nová makra.
+					if (sessionId && editUrl !== '#') {
+						editUrl += (editUrl.indexOf('?') !== -1 ? '&' : '?') + 'saf_session=' + encodeURIComponent(sessionId);
+					}
+					editBtn.href          = editUrl;
 					editBtn.style.display = opt.value ? '' : 'none';
+					editBtn.dataset.templateId = opt.value;
 				}
 				if (idField) idField.value = opt.value;
 			});
 			// Trigger při načtení pokud je předvybrána šablona.
 			if (sel.value) sel.dispatchEvent(new Event('change'));
+		}
+
+		// Před otevřením editoru uložíme aktuální makra do šablony (AJAX).
+		// Tím se v Gutenberg sidebaru zobrazí makra z aktuálního importu.
+		if (editBtn && sessionId) {
+			editBtn.addEventListener('click', function (e) {
+				var tplId = editBtn.dataset.templateId;
+				if (!tplId || !sessionId) return;
+				// Synchronní fetch aby se makra uložila PŘED otevřením editoru.
+				var xhr = new XMLHttpRequest();
+				xhr.open('POST', <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>, false);
+				xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+				xhr.send('action=saf_update_template_macros'
+					+ '&nonce=' + encodeURIComponent(<?php echo wp_json_encode( wp_create_nonce('saf_update_macros') ); ?>)
+					+ '&template_id=' + encodeURIComponent(tplId)
+					+ '&session_id=' + encodeURIComponent(sessionId));
+				// Editor se otevře v novém tabu (target=_blank) s aktuálními makry.
+			});
 		}
 	}());
 	</script>

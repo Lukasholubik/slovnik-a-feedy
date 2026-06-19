@@ -131,6 +131,24 @@ final class Plugin {
 			] );
 		} );
 
+		// AJAX: uložení maker do šablony při otevření existující šablony.
+		add_action( 'wp_ajax_saf_update_template_macros', static function (): void {
+			check_ajax_referer( 'saf_update_macros', 'nonce' );
+			if ( ! current_user_can( 'manage_glossary' ) ) {
+				wp_send_json_error( 'Nedostatečná oprávnění.' );
+			}
+			$template_id = absint( $_POST['template_id'] ?? 0 );
+			$session_id  = sanitize_key( $_POST['session_id'] ?? '' );
+			$session     = get_transient( 'saf_import_session_' . $session_id );
+
+			if ( ! $template_id || ! $session || empty( $session['macro_names'] ) ) {
+				wp_send_json_error( 'Neplatná data.' );
+			}
+
+			\SlovnikAFeedy\TemplateManager::save_macro_names( $template_id, $session['macro_names'] );
+			wp_send_json_success( 'Makra aktualizována.' );
+		} );
+
 		// FAQ Fixer AJAX.
 		Admin\FaqFixer::register_ajax();
 
