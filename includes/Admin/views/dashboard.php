@@ -276,6 +276,64 @@ $log_warnings = Logger::count( Logger::WARNING );
 		</div>
 	</div>
 
+	<!-- Nástroje / Oprava dat -->
+	<div class="saf-panel saf-panel--full">
+		<h2 class="saf-panel__title">
+			<span class="dashicons dashicons-admin-tools"></span>
+			<?php esc_html_e( 'Nástroje', 'slovnik-a-feedy' ); ?>
+		</h2>
+		<div class="saf-docs">
+			<div class="saf-docs__col">
+				<h3><?php esc_html_e( 'Oprava Rank Math FAQ bloků', 'slovnik-a-feedy' ); ?></h3>
+				<p style="font-size:13px;color:#555">
+					<?php esc_html_e( 'Po importu mohou FAQ bloky zobrazovat chybu "neplatný obsah". Toto tlačítko odstraní nesprávné HTML a nechá Rank Math vygenerovat obsah správně.', 'slovnik-a-feedy' ); ?>
+				</p>
+				<?php
+				$streams_for_tools = \SlovnikAFeedy\StreamManager::get_all();
+				$faq_nonce = wp_create_nonce( 'saf_fix_faq' );
+				?>
+				<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+					<?php foreach ( $streams_for_tools as $stream ) : ?>
+					<button type="button"
+						class="button saf-faq-fix-btn"
+						data-cpt="<?php echo esc_attr( $stream['cpt'] ); ?>"
+						data-nonce="<?php echo esc_attr( $faq_nonce ); ?>"
+						data-ajax="<?php echo esc_attr( admin_url( 'admin-ajax.php' ) ); ?>">
+						🔧 <?php echo esc_html( $stream['name'] ); ?>
+					</button>
+					<?php endforeach; ?>
+				</div>
+				<p id="saf-faq-fix-status" style="margin-top:8px;font-size:13px;color:#2d7738;display:none"></p>
+				<script>
+				document.querySelectorAll('.saf-faq-fix-btn').forEach(function(btn){
+					btn.addEventListener('click', function(){
+						btn.disabled = true;
+						btn.textContent = '⏳ Opravuji...';
+						var status = document.getElementById('saf-faq-fix-status');
+						fetch(btn.dataset.ajax, {
+							method:'POST',
+							headers:{'Content-Type':'application/x-www-form-urlencoded'},
+							body:'action=saf_fix_faq&nonce='+btn.dataset.nonce+'&cpt='+btn.dataset.cpt
+						}).then(function(r){return r.json();}).then(function(d){
+							btn.disabled = false;
+							btn.textContent = '🔧 ' + btn.dataset.cpt;
+							if(d.success){
+								status.textContent = '✓ ' + d.data.message;
+								status.style.display = '';
+								status.style.color = '#2d7738';
+							} else {
+								status.textContent = '✗ ' + (d.data || 'Chyba');
+								status.style.display = '';
+								status.style.color = '#e94560';
+							}
+						});
+					});
+				});
+				</script>
+			</div>
+		</div>
+	</div>
+
 	<!-- Patička Grou.cz -->
 	<div class="saf-footer">
 		<span><?php esc_html_e( 'Plugin Slovník a Feedy je součástí rodiny nástrojů', 'slovnik-a-feedy' ); ?> <a href="https://grou.cz" target="_blank" rel="noopener">Grou.cz</a></span>

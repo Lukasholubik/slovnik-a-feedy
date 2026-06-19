@@ -131,6 +131,9 @@ final class Plugin {
 			] );
 		} );
 
+		// FAQ Fixer AJAX.
+		Admin\FaqFixer::register_ajax();
+
 		// Batch import Cron hook.
 		Importer\BatchRunner::register_hooks();
 
