@@ -143,9 +143,14 @@ final class StreamManager {
 	/**
 	 * Vytvoří výchozí stream pokud žádné streamy ještě neexistují.
 	 * Používá CPT 'glossary' pro zpětnou kompatibilitu s Fází 1.
+	 *
+	 * POZOR: nesmí volat get_all() – způsobilo by infinite recursion při
+	 * první instalaci (get_all() prázdné → create_default() → get_all() → ...).
+	 * Proto čte option přímo.
 	 */
 	public static function create_default(): void {
-		if ( ! empty( self::get_all() ) ) {
+		$existing = (array) get_option( self::OPTION, [] );
+		if ( ! empty( $existing ) ) {
 			return;
 		}
 		$default = [

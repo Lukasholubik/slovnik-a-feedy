@@ -4,6 +4,22 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-22 – v1.0.2 – Kritická oprava: infinite recursion při první instalaci
+
+**Problém:** Plugin nešel aktivovat na live serveru (fresh install). Fatal error: Maximum function nesting level reached.
+
+**Příčina:** `StreamManager::create_default()` volalo `self::get_all()` → `get_all()` vidělo prázdné streamy → volalo `create_default()` → nekonečná rekurze → PHP nesting limit 256 → Fatal error.
+
+Na lokálním prostředí nenastalo protože `saf_streams` option již existovala z předchozí aktivace.
+
+**Oprava:** `create_default()` nyní čte option přímo přes `get_option()` místo přes `get_all()` – odstraní cirkulární závislost.
+
+**Soubor:** `includes/class-stream-manager.php`
+
+**Ověřeno:** wp-cli simulace prázdné DB (smazána `saf_streams` option) → aktivace proběhla úspěšně.
+
+---
+
 ## 2026-06-22 – v1.0.1 – Kompletní penetrační audit + opravy
 
 Kompletní bezpečnostní audit všech PHP souborů dle Bezpečnost.txt checklistu.
