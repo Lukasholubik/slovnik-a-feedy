@@ -756,11 +756,35 @@ final class ImportPage {
 		// Auto-konverze Google Sheets edit/view URL → CSV export URL.
 		$url = $this->normalize_gsheet_url( $url );
 
-		$response = wp_remote_get( $url, [ 'timeout' => 30, 'sslverify' => true ] );
+		// Zakázat automatické sledování přesměrování – každý Location header
+		// ověříme ručně (ochrana před SSRF bypass přes redirect na non-whitelisted host).
+		$response = wp_remote_get( $url, [ 'timeout' => 30, 'sslverify' => true, 'redirection' => 0 ] );
 		if ( is_wp_error( $response ) ) {
 			throw new \RuntimeException(
 				__( 'Nepodařilo se stáhnout Google Sheet: ', 'slovnik-a-feedy' ) . $response->get_error_message()
 			);
+		}
+
+		// Ruční ošetření 3xx přesměrování s validací cílového hosta.
+		$http_code = (int) wp_remote_retrieve_response_code( $response );
+		if ( in_array( $http_code, [ 301, 302, 303, 307, 308 ], true ) ) {
+			$location    = wp_remote_retrieve_header( $response, 'location' );
+			$loc_parsed  = wp_parse_url( $location );
+			$loc_host    = strtolower( $loc_parsed['host'] ?? '' );
+			$loc_scheme  = strtolower( $loc_parsed['scheme'] ?? '' );
+
+			if ( ! in_array( $loc_scheme, [ 'http', 'https' ], true ) || ! in_array( $loc_host, $allowed_hosts, true ) ) {
+				throw new \RuntimeException(
+					__( 'Google Sheet přesměroval na nepovolený server. Import přerušen.', 'slovnik-a-feedy' )
+				);
+			}
+
+			$response = wp_remote_get( $location, [ 'timeout' => 30, 'sslverify' => true, 'redirection' => 0 ] );
+			if ( is_wp_error( $response ) ) {
+				throw new \RuntimeException(
+					__( 'Nepodařilo se stáhnout přesměrovaný Google Sheet: ', 'slovnik-a-feedy' ) . $response->get_error_message()
+				);
+			}
 		}
 
 		$code = wp_remote_retrieve_response_code( $response );

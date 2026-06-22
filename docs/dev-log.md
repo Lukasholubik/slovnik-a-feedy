@@ -4,6 +4,41 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-22 – v1.0.1 – Kompletní penetrační audit + opravy
+
+Kompletní bezpečnostní audit všech PHP souborů dle Bezpečnost.txt checklistu.
+
+**Opravené problémy (4 nálezy):**
+
+1. **`docs/faq-debug.php` smazán** *(kritické)*
+   - Soubor bez ABSPATH check ani autentizace byl přístupný veřejně a umožňoval číst obsah libovolného postu (i draftu) přes URL parametr `?post_id=N` bez přihlášení. Smazán – šlo o dočasný debug nástroj.
+
+2. **`class-tracker.php` – SQL `prepare()` pro `information_schema` a `SHOW TABLES`** *(kritické)*
+   - Tři dotazy používaly interpolaci `'{$table}'` místo `$wpdb->prepare()`. Tabulkové jméno pocházelo z konstanty (nízké reálné riziko), ale porušovalo WPCS standard.
+   - Opraveno: všechny dotazy na `information_schema.COLUMNS` a `SHOW TABLES LIKE` nyní přes `$wpdb->prepare()` s `%s` parametry.
+
+3. **`class-tracker.php` – Rate limiting na REST endpointech `/click` a `/time`** *(varování)*
+   - Veřejné endpointy (permission_callback = `__return_true`) neměly žádný rate limit – útočník s platnou nonce mohl nafukovat statistiky nebo zatěžovat DB.
+   - Opraveno: nová private metoda `check_rate_limit()` – max 60 requestů/min per IP hash (transient `saf_track_rl_{ip_hash}`). Vrací HTTP 429 při překročení.
+
+4. **`class-import-page.php` – SSRF bypass přes redirect při stahování GSheet** *(varování)*
+   - `wp_remote_get()` automaticky sledoval přesměrování a nekontroloval, zda cílový host 3xx přesměrování je stále na whitelistu Google domén.
+   - Opraveno: `'redirection' => 0` + ruční zpracování 3xx s validací `Location` hosta proti whitelistu před dalším requestem.
+
+**Potvrzeno jako OK (žádné kritické nálezy v ostatním kódu):**
+- ABSPATH ve všech zbývajících PHP souborech ✅
+- Všechny AJAX handlery: `check_ajax_referer()` + `current_user_can('manage_glossary')` ✅
+- `$wpdb->prepare()` všude kde jsou user data ✅
+- Output escaping (`esc_html`, `esc_attr`, `esc_url`) ve všech views ✅
+- Upload: MIME validace + path traversal ochrana ✅
+- Žádné `eval()`, `exec()`, `unserialize()` na user datech ✅
+- XXE ochrana: `LIBXML_NONET` při XML parsování ✅
+- SSRF (Google Sheets): whitelist hosts + schema check ✅
+
+**PHP lint: OK (žádné chyby na všech PHP souborech)**
+
+---
+
 ## 2026-06-19 – Bugfixes, FAQ, Analytics, Import UX
 
 ### Import – kritické opravy

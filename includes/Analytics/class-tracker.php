@@ -52,8 +52,14 @@ final class Tracker {
 		$wpdb->query( "ALTER TABLE {$table} ADD COLUMN IF NOT EXISTS time_total bigint(20) UNSIGNED NOT NULL DEFAULT 0" ); // phpcs:ignore
 		$wpdb->query( "ALTER TABLE {$table} ADD COLUMN IF NOT EXISTS time_count int(10) UNSIGNED NOT NULL DEFAULT 0" );    // phpcs:ignore
 
-		// Ověř existenci.
-		$col = $wpdb->get_var( "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='{$table}' AND COLUMN_NAME='time_total'" ); // phpcs:ignore
+		// Ověř existenci (prepare() pro TABLE_NAME i COLUMN_NAME).
+		$col = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s",
+				$table,
+				'time_total'
+			)
+		);
 
 		if ( $col ) {
 			wp_send_json_success( 'Sloupce time_total a time_count existují. ✓' );
@@ -170,7 +176,28 @@ final class Tracker {
 		);
 	}
 
+	/**
+	 * Per-IP rate limit pro tracking endpointy: max 60 requestů/min.
+	 * Brání nafukování statistik i DB zatěžování jedním klientem.
+	 */
+	private static function check_rate_limit(): bool {
+		$ip_hash = substr( md5( $_SERVER['REMOTE_ADDR'] ?? 'unknown' ), 0, 16 );
+		$key     = 'saf_track_rl_' . $ip_hash;
+		$hits    = (int) get_transient( $key );
+
+		if ( $hits >= 60 ) {
+			return false;
+		}
+
+		set_transient( $key, $hits + 1, 60 );
+		return true;
+	}
+
 	public static function rest_track_click( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		if ( ! static::check_rate_limit() ) {
+			return new \WP_Error( 'rate_limit', 'Příliš mnoho požadavků.', [ 'status' => 429 ] );
+		}
+
 		if ( ! wp_verify_nonce( $request->get_param( 'nonce' ), 'saf_track' ) ) {
 			return new \WP_Error( 'invalid_nonce', 'Neplatný token.', [ 'status' => 403 ] );
 		}
@@ -187,6 +214,10 @@ final class Tracker {
 	}
 
 	public static function rest_track_time( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		if ( ! static::check_rate_limit() ) {
+			return new \WP_Error( 'rate_limit', 'Příliš mnoho požadavků.', [ 'status' => 429 ] );
+		}
+
 		if ( ! wp_verify_nonce( $request->get_param( 'nonce' ), 'saf_track' ) ) {
 			return new \WP_Error( 'invalid_nonce', 'Neplatný token.', [ 'status' => 403 ] );
 		}
@@ -309,11 +340,12 @@ final class Tracker {
 		$table = $wpdb->prefix . self::TABLE;
 
 		// Zkontroluj existenci time_total (nový sloupec přidaný v aktualizaci).
-		$col = $wpdb->get_var( // phpcs:ignore
-			"SELECT COLUMN_NAME FROM information_schema.COLUMNS
-			 WHERE TABLE_SCHEMA = DATABASE()
-			 AND TABLE_NAME = '{$table}'
-			 AND COLUMN_NAME = 'time_total'"
+		$col = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s",
+				$table,
+				'time_total'
+			)
 		);
 
 		if ( ! $col ) {
@@ -324,7 +356,7 @@ final class Tracker {
 		}
 
 		// Pokud tabulka vůbec neexistuje.
-		$exists = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ); // phpcs:ignore
+		$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
 		if ( ! $exists ) {
 			static::create_table();
 		}
@@ -340,11 +372,12 @@ final class Tracker {
 			return $cache;
 		}
 		global $wpdb;
-		$col    = $wpdb->get_var( // phpcs:ignore
-			"SELECT COLUMN_NAME FROM information_schema.COLUMNS
-			 WHERE TABLE_SCHEMA = DATABASE()
-			 AND TABLE_NAME = '{$wpdb->prefix}" . self::TABLE . "'
-			 AND COLUMN_NAME = 'time_total'"
+		$col = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s",
+				$wpdb->prefix . self::TABLE,
+				'time_total'
+			)
 		);
 		$cache = (bool) $col;
 		return $cache;
