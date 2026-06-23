@@ -155,6 +155,9 @@ final class Plugin {
 		// JSON-LD Fixer AJAX.
 		Admin\JsonLdFixer::register_ajax();
 
+		// Thumbnail Sync AJAX.
+		Admin\ThumbnailSync::register_ajax();
+
 		// Batch import Cron hook.
 		Importer\BatchRunner::register_hooks();
 

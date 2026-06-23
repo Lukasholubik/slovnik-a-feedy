@@ -396,6 +396,97 @@ $log_warnings = Logger::count( Logger::WARNING );
 		</div>
 	</div>
 
+	<!-- Synchronizace náhledových obrázků -->
+	<div class="saf-panel saf-panel--full">
+		<h2 class="saf-panel__title">
+			<span class="dashicons dashicons-format-image"></span>
+			<?php esc_html_e( 'Synchronizace náhledových obrázků', 'slovnik-a-feedy' ); ?>
+		</h2>
+		<p style="font-size:13px;color:#555;max-width:640px">
+			<?php esc_html_e( 'Zkopíruje náhledové obrázky (featured image) ze zdrojového CPT do cílového CPT podle shodného slugu. Přeskočí posty, které thumbnail již mají.', 'slovnik-a-feedy' ); ?>
+		</p>
+		<?php
+		$thumb_nonce   = wp_create_nonce( 'saf_sync_thumbnails' );
+		$streams_thumb = \SlovnikAFeedy\StreamManager::get_all();
+		// Načti všechny registrované veřejné CPT jako možné zdroje.
+		$all_cpts = get_post_types( [ 'public' => true ], 'objects' );
+		unset( $all_cpts['attachment'] );
+		?>
+		<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-top:12px">
+			<label style="font-size:13px">
+				<?php esc_html_e( 'Zdroj (má obrázky):', 'slovnik-a-feedy' ); ?><br>
+				<select id="saf-thumb-source" style="margin-top:4px">
+					<?php foreach ( $all_cpts as $cpt_obj ) : ?>
+						<option value="<?php echo esc_attr( $cpt_obj->name ); ?>"
+							<?php selected( $cpt_obj->name, 'slovicek-pojmu' ); ?>>
+							<?php echo esc_html( $cpt_obj->label . ' (' . $cpt_obj->name . ')' ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+			</label>
+			<label style="font-size:13px">
+				<?php esc_html_e( 'Cíl (chybí obrázky):', 'slovnik-a-feedy' ); ?><br>
+				<select id="saf-thumb-target" style="margin-top:4px">
+					<?php foreach ( $streams_thumb as $stream ) : ?>
+						<option value="<?php echo esc_attr( $stream['cpt'] ); ?>">
+							<?php echo esc_html( $stream['name'] . ' (' . $stream['cpt'] . ')' ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+			</label>
+			<button type="button" id="saf-thumb-sync-btn" class="button button-primary"
+				data-nonce="<?php echo esc_attr( $thumb_nonce ); ?>"
+				data-ajax="<?php echo esc_attr( admin_url( 'admin-ajax.php' ) ); ?>">
+				🖼️ <?php esc_html_e( 'Spustit synchronizaci', 'slovnik-a-feedy' ); ?>
+			</button>
+		</div>
+		<p id="saf-thumb-sync-status" style="margin-top:10px;font-size:13px;display:none"></p>
+		<script>
+		(function(){
+			var btn = document.getElementById('saf-thumb-sync-btn');
+			if (!btn) return;
+			btn.addEventListener('click', function(){
+				var source = document.getElementById('saf-thumb-source').value;
+				var target = document.getElementById('saf-thumb-target').value;
+				var status = document.getElementById('saf-thumb-sync-status');
+				if (source === target) {
+					status.textContent = '✗ Zdrojový a cílový CPT musí být různé.';
+					status.style.color = '#e94560';
+					status.style.display = '';
+					return;
+				}
+				btn.disabled = true;
+				btn.textContent = '⏳ Synchronizuji...';
+				status.style.display = 'none';
+				fetch(btn.dataset.ajax, {
+					method: 'POST',
+					headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+					body: 'action=saf_sync_thumbnails&nonce=' + btn.dataset.nonce
+					    + '&source_cpt=' + encodeURIComponent(source)
+					    + '&target_cpt=' + encodeURIComponent(target)
+				}).then(function(r){ return r.json(); }).then(function(d){
+					btn.disabled = false;
+					btn.textContent = '🖼️ Spustit synchronizaci';
+					if (d.success) {
+						status.textContent = '✓ ' + d.data.message;
+						status.style.color = '#2d7738';
+					} else {
+						status.textContent = '✗ ' + (d.data || 'Chyba');
+						status.style.color = '#e94560';
+					}
+					status.style.display = '';
+				}).catch(function(e){
+					btn.disabled = false;
+					btn.textContent = '🖼️ Spustit synchronizaci';
+					status.textContent = '✗ Chyba sítě: ' + e.message;
+					status.style.color = '#e94560';
+					status.style.display = '';
+				});
+			});
+		}());
+		</script>
+	</div>
+
 	<!-- Patička Grou.cz -->
 	<div class="saf-footer">
 		<span><?php esc_html_e( 'Plugin Slovník a Feedy je součástí rodiny nástrojů', 'slovnik-a-feedy' ); ?> <a href="https://grou.cz" target="_blank" rel="noopener">Grou.cz</a></span>

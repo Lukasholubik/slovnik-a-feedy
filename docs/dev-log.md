@@ -4,6 +4,31 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-23 – v1.0.6 – Thumbnail Sync: párování náhledových obrázků podle slugu
+
+**Nová funkce:** Jednorázové (i opakované) zkopírování `_thumbnail_id` ze zdrojového CPT do cílového CPT podle shodného `post_name` (slugu).
+
+**Použití:** `slovicek-pojmu` (zdroj, 87 postů s obrázky) → `glossary` (cíl, 480 postů bez obrázků)
+
+**Jak funguje:**
+1. Načte všechny cílové posty bez `_thumbnail_id` (jeden dotaz s meta_query NOT EXISTS)
+2. Předpočítá mapu `slug → thumb_id` ze zdrojového CPT (jeden JOIN dotaz)
+3. Pro každý cílový post ověří existenci attachment + zavolá `set_post_thumbnail()`
+4. Přeskočí posty, které thumbnail již mají nebo nemají párový zdroj
+
+**Admin UI:** Dashboard → nová sekce "Synchronizace náhledových obrázků" s dropdownem (zdroj/cíl CPT) + tlačítko
+
+**Bezpečnost:**
+- Nonce `saf_sync_thumbnails` + cap `manage_glossary` + `return` po každém error
+- Target CPT musí být SAF stream (`StreamManager::find_by_cpt()`)
+- Source CPT musí být registrovaný (`post_type_exists()`)
+- Source ≠ Target guard
+
+**Nové soubory:** `includes/Admin/class-thumbnail-sync.php`
+**Upravené soubory:** `class-plugin.php`, `Admin/views/dashboard.php`, `slovnik-a-feedy.php`
+
+---
+
 ## 2026-06-23 – v1.0.5 – GitHub Updater: automatické aktualizace z GitHub releases
 
 **Co bylo přidáno:** Nová třída `GithubUpdater` – plugin si teď sám hlídá nové verze na GitHubu.
