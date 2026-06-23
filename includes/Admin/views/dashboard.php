@@ -331,6 +331,55 @@ $log_warnings = Logger::count( Logger::WARNING );
 				});
 				</script>
 			</div>
+
+			<div class="saf-docs__col">
+				<h3><?php esc_html_e( 'Oprava JSON-LD schema (viditelný text)', 'slovnik-a-feedy' ); ?></h3>
+				<p style="font-size:13px;color:#555">
+					<?php esc_html_e( 'Po importu CSV se JSON-LD FAQ schema zobrazuje jako viditelný text na stránce – import odstranil &lt;script&gt; tagy. Toto tlačítko je obalí zpět.', 'slovnik-a-feedy' ); ?>
+				</p>
+				<?php
+				$jsonld_nonce = wp_create_nonce( 'saf_fix_json_ld' );
+				?>
+				<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+					<?php foreach ( $streams_for_tools as $stream ) : ?>
+					<button type="button"
+						class="button saf-jsonld-fix-btn"
+						data-cpt="<?php echo esc_attr( $stream['cpt'] ); ?>"
+						data-nonce="<?php echo esc_attr( $jsonld_nonce ); ?>"
+						data-ajax="<?php echo esc_attr( admin_url( 'admin-ajax.php' ) ); ?>">
+						📄 <?php echo esc_html( $stream['name'] ); ?>
+					</button>
+					<?php endforeach; ?>
+				</div>
+				<p id="saf-jsonld-fix-status" style="margin-top:8px;font-size:13px;color:#2d7738;display:none"></p>
+				<script>
+				document.querySelectorAll('.saf-jsonld-fix-btn').forEach(function(btn){
+					btn.addEventListener('click', function(){
+						btn.disabled = true;
+						var origLabel = btn.textContent;
+						btn.textContent = '⏳ Opravuji...';
+						var status = document.getElementById('saf-jsonld-fix-status');
+						fetch(btn.dataset.ajax, {
+							method:'POST',
+							headers:{'Content-Type':'application/x-www-form-urlencoded'},
+							body:'action=saf_fix_json_ld&nonce='+btn.dataset.nonce+'&cpt='+btn.dataset.cpt
+						}).then(function(r){return r.json();}).then(function(d){
+							btn.disabled = false;
+							btn.textContent = origLabel;
+							if(d.success){
+								status.textContent = '✓ ' + d.data.message;
+								status.style.display = '';
+								status.style.color = '#2d7738';
+							} else {
+								status.textContent = '✗ ' + (d.data || 'Chyba');
+								status.style.display = '';
+								status.style.color = '#e94560';
+							}
+						});
+					});
+				});
+				</script>
+			</div>
 		</div>
 	</div>
 

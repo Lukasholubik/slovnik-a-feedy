@@ -152,6 +152,9 @@ final class Plugin {
 		// FAQ Fixer AJAX.
 		Admin\FaqFixer::register_ajax();
 
+		// JSON-LD Fixer AJAX.
+		Admin\JsonLdFixer::register_ajax();
+
 		// Batch import Cron hook.
 		Importer\BatchRunner::register_hooks();
 

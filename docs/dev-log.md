@@ -4,6 +4,29 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-23 – v1.0.3 – JSON-LD Fixer: oprava viditelného schema textu po importu
+
+**Problém:** Import CSV z live serveru odstranil `<script type="application/ld+json">` tagy (WP sanitizace). JSON-LD FAQ schema se zobrazovalo jako viditelný text na všech 480 stránkách glossary CPT.
+
+**Řešení (dvě části):**
+
+1. **Okamžitá oprava DB** – přímý SQL UPDATE na lokálním prostředí test serveru:
+   - Pattern: `</section>\n\n\n{` → `</section>\n\n\n<script type="application/ld+json">\n{`
+   - Pattern: `  ]\n}\n\n<!-- /wp:html -->` → `  ]\n}\n</script>\n\n<!-- /wp:html -->`
+   - Výsledek: 0 stránek postiženo (all 480 opraveno).
+
+2. **Admin nástroj pro live** – nová třída `JsonLdFixer` + tlačítko v dashboardu:
+   - Soubor: `includes/Admin/class-json-ld-fixer.php`
+   - AJAX: `wp_ajax_saf_fix_json_ld` (nonce `saf_fix_json_ld`, cap `manage_glossary`)
+   - Regex detekce JSON-LD objektu v `<!-- wp:html -->` bez `<script>` obálky + JSON validace
+   - Tlačítko v dashboardu → sekce "Nástroje" → "Oprava JSON-LD schema (viditelný text)"
+   - Registrace v `class-plugin.php` vedle `FaqFixer::register_ajax()`
+
+**Nové soubory:** `includes/Admin/class-json-ld-fixer.php`
+**Upravené soubory:** `class-plugin.php`, `Admin/views/dashboard.php`, `slovnik-a-feedy.php`
+
+---
+
 ## 2026-06-22 – v1.0.2 – Kritická oprava: infinite recursion při první instalaci
 
 **Problém:** Plugin nešel aktivovat na live serveru (fresh install). Fatal error: Maximum function nesting level reached.
