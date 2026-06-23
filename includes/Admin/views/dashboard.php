@@ -33,7 +33,13 @@ $log_warnings = Logger::count( Logger::WARNING );
 				<?php esc_html_e( 'Slovník a Feedy', 'slovnik-a-feedy' ); ?>
 			</h1>
 		</div>
-		<span class="saf-header__version">v<?php echo esc_html( SAF_VERSION ); ?></span>
+		<span class="saf-header__version">
+			v<?php echo esc_html( SAF_VERSION ); ?>
+			&nbsp;·&nbsp;
+			<a href="<?php echo esc_url( admin_url( 'update-core.php?force-check=1' ) ); ?>" style="font-size:12px;font-weight:400">
+				<?php esc_html_e( '↻ Zkontrolovat aktualizace', 'slovnik-a-feedy' ); ?>
+			</a>
+		</span>
 	</div>
 
 	<!-- Statistiky -->
