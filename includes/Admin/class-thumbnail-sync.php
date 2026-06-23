@@ -2,8 +2,9 @@
 /**
  * Thumbnail Sync – zkopíruje náhledové obrázky ze zdrojového CPT do cílového CPT podle shodného slugu.
  *
- * Použití: slovicek-pojmu (zdroj, má thumbnaily) → glossary (cíl, thumbnaily chybí).
- * Párování: post_name (slug) musí být shodný v obou CPT.
+ * Podporuje dva formáty zdrojového meta pole:
+ *  - standardní: _thumbnail_id → plain integer (attachment ID)
+ *  - JetEngine:  grafika → serialized array a:2:{s:2:"id";i:1302;s:3:"url";s:...}
  *
  * @package SlovnikAFeedy
  */
@@ -21,9 +22,10 @@ final class ThumbnailSync {
 	/**
 	 * Zkopíruje thumbnaily ze $source_cpt do $target_cpt podle shodného slugu.
 	 *
+	 * @param string $source_field  Meta klíč ve zdrojovém CPT (výchozí: 'grafika').
 	 * @return array{synced: int, skipped: int, no_source: int, errors: int}
 	 */
-	public static function sync( string $source_cpt, string $target_cpt ): array {
+	public static function sync( string $source_cpt, string $target_cpt, string $source_field = 'grafika' ): array {
 		$synced    = 0;
 		$skipped   = 0;
 		$no_source = 0;
@@ -47,18 +49,20 @@ final class ThumbnailSync {
 			return compact( 'synced', 'skipped', 'no_source', 'errors' );
 		}
 
-		// Předpočítej mapu: slug → thumbnail_id ze zdrojového CPT (jeden dotaz).
+		// Předpočítej mapu: slug → attachment_id ze zdrojového CPT (jeden dotaz).
 		global $wpdb;
-		$source_cpt_esc = esc_sql( $source_cpt );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$source_rows = $wpdb->get_results(
-			"SELECT p.post_name, pm.meta_value AS thumb_id
-			 FROM {$wpdb->posts} p
-			 INNER JOIN {$wpdb->postmeta} pm
-			   ON pm.post_id = p.ID AND pm.meta_key = '_thumbnail_id'
-			 WHERE p.post_type = '{$source_cpt_esc}'
-			   AND p.post_status IN ('publish','draft')
-			   AND pm.meta_value != ''",
+		$source_rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT p.post_name, pm.meta_value AS raw_value
+				 FROM {$wpdb->posts} p
+				 INNER JOIN {$wpdb->postmeta} pm
+				   ON pm.post_id = p.ID AND pm.meta_key = %s
+				 WHERE p.post_type = %s
+				   AND p.post_status IN ('publish','draft')
+				   AND pm.meta_value != ''",
+				$source_field,
+				$source_cpt
+			),
 			ARRAY_A
 		);
 
@@ -66,10 +70,13 @@ final class ThumbnailSync {
 			return [ 'synced' => 0, 'skipped' => 0, 'no_source' => count( $targets ), 'errors' => 0 ];
 		}
 
-		// slug → thumb_id mapa.
+		// Postav mapu slug → attachment_id.
 		$source_map = [];
 		foreach ( $source_rows as $row ) {
-			$source_map[ $row['post_name'] ] = (int) $row['thumb_id'];
+			$attachment_id = static::extract_attachment_id( $row['raw_value'] );
+			if ( $attachment_id > 0 ) {
+				$source_map[ $row['post_name'] ] = $attachment_id;
+			}
 		}
 
 		wp_suspend_cache_invalidation( true );
@@ -88,7 +95,6 @@ final class ThumbnailSync {
 
 			$thumb_id = $source_map[ $slug ];
 
-			// Ověř, že attachment stále existuje.
 			if ( ! wp_attachment_is_image( $thumb_id ) ) {
 				$no_source++;
 				continue;
@@ -108,6 +114,43 @@ final class ThumbnailSync {
 	}
 
 	/**
+	 * Extrahuje attachment ID z raw meta hodnoty.
+	 *
+	 * Podporuje:
+	 *  - plain integer:  "1302"
+	 *  - JetEngine serialized: a:2:{s:2:"id";i:1302;s:3:"url";s:91:"...";}
+	 *  - JetEngine array (already unserialized): ['id' => 1302, 'url' => '...']
+	 */
+	private static function extract_attachment_id( string $raw ): int {
+		// Pokus o přímý integer.
+		if ( is_numeric( $raw ) && (int) $raw > 0 ) {
+			return (int) $raw;
+		}
+
+		// Pokus o unserialize (JetEngine / ACF serialized).
+		$data = @unserialize( $raw ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+		if ( is_array( $data ) ) {
+			// JetEngine formát: ['id' => 1302, 'url' => '...']
+			if ( isset( $data['id'] ) && (int) $data['id'] > 0 ) {
+				return (int) $data['id'];
+			}
+			// ACF image formát: první prvek může být attachment ID
+			$first = reset( $data );
+			if ( is_numeric( $first ) && (int) $first > 0 ) {
+				return (int) $first;
+			}
+		}
+
+		// Pokus o JSON.
+		$json = json_decode( $raw, true );
+		if ( is_array( $json ) && isset( $json['id'] ) && (int) $json['id'] > 0 ) {
+			return (int) $json['id'];
+		}
+
+		return 0;
+	}
+
+	/**
 	 * Registrace AJAX handleru.
 	 */
 	public static function register_ajax(): void {
@@ -121,10 +164,10 @@ final class ThumbnailSync {
 			return;
 		}
 
-		$source_cpt = sanitize_key( $_POST['source_cpt'] ?? '' );
-		$target_cpt = sanitize_key( $_POST['target_cpt'] ?? '' );
+		$source_cpt   = sanitize_key( $_POST['source_cpt'] ?? '' );
+		$target_cpt   = sanitize_key( $_POST['target_cpt'] ?? '' );
+		$source_field = sanitize_key( $_POST['source_field'] ?? 'grafika' );
 
-		// Target musí být SAF stream; source může být libovolný registrovaný CPT.
 		if ( ! $target_cpt || ! StreamManager::find_by_cpt( $target_cpt ) ) {
 			wp_send_json_error( 'Cílový CPT není platný SAF stream.' );
 			return;
@@ -137,8 +180,12 @@ final class ThumbnailSync {
 			wp_send_json_error( 'Zdrojový a cílový CPT musí být různé.' );
 			return;
 		}
+		if ( ! $source_field ) {
+			wp_send_json_error( 'Zadej název zdrojového meta pole.' );
+			return;
+		}
 
-		$result = static::sync( $source_cpt, $target_cpt );
+		$result = static::sync( $source_cpt, $target_cpt, $source_field );
 
 		wp_send_json_success( [
 			'message' => sprintf(

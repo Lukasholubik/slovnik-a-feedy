@@ -409,13 +409,12 @@ $log_warnings = Logger::count( Logger::WARNING );
 			<?php esc_html_e( 'Synchronizace náhledových obrázků', 'slovnik-a-feedy' ); ?>
 		</h2>
 		<p style="font-size:13px;color:#555;max-width:640px">
-			<?php esc_html_e( 'Zkopíruje náhledové obrázky (featured image) ze zdrojového CPT do cílového CPT podle shodného slugu. Přeskočí posty, které thumbnail již mají.', 'slovnik-a-feedy' ); ?>
+			<?php esc_html_e( 'Zkopíruje náhledové obrázky ze zdrojového CPT do cílového CPT podle shodného slugu. Podporuje standardní _thumbnail_id i JetEngine/ACF pole (serializované pole s klíčem "id"). Přeskočí posty, které thumbnail již mají.', 'slovnik-a-feedy' ); ?>
 		</p>
 		<?php
 		$thumb_nonce   = wp_create_nonce( 'saf_sync_thumbnails' );
 		$streams_thumb = \SlovnikAFeedy\StreamManager::get_all();
-		// Načti všechny registrované veřejné CPT jako možné zdroje.
-		$all_cpts = get_post_types( [ 'public' => true ], 'objects' );
+		$all_cpts      = get_post_types( [ 'public' => true ], 'objects' );
 		unset( $all_cpts['attachment'] );
 		?>
 		<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-top:12px">
@@ -429,6 +428,15 @@ $log_warnings = Logger::count( Logger::WARNING );
 						</option>
 					<?php endforeach; ?>
 				</select>
+			</label>
+			<label style="font-size:13px">
+				<?php esc_html_e( 'Meta pole ve zdroji:', 'slovnik-a-feedy' ); ?><br>
+				<input type="text" id="saf-thumb-source-field" value="grafika"
+					style="margin-top:4px;width:140px"
+					placeholder="_thumbnail_id">
+				<small style="display:block;color:#888;font-size:11px;margin-top:2px">
+					<?php esc_html_e( 'JetEngine: grafika | Standard: _thumbnail_id', 'slovnik-a-feedy' ); ?>
+				</small>
 			</label>
 			<label style="font-size:13px">
 				<?php esc_html_e( 'Cíl (chybí obrázky):', 'slovnik-a-feedy' ); ?><br>
@@ -452,7 +460,8 @@ $log_warnings = Logger::count( Logger::WARNING );
 			var btn = document.getElementById('saf-thumb-sync-btn');
 			if (!btn) return;
 			btn.addEventListener('click', function(){
-				var source = document.getElementById('saf-thumb-source').value;
+				var source      = document.getElementById('saf-thumb-source').value;
+				var sourceField = document.getElementById('saf-thumb-source-field').value.trim() || 'grafika';
 				var target = document.getElementById('saf-thumb-target').value;
 				var status = document.getElementById('saf-thumb-sync-status');
 				if (source === target) {
@@ -469,6 +478,7 @@ $log_warnings = Logger::count( Logger::WARNING );
 					headers: {'Content-Type': 'application/x-www-form-urlencoded'},
 					body: 'action=saf_sync_thumbnails&nonce=' + btn.dataset.nonce
 					    + '&source_cpt=' + encodeURIComponent(source)
+					    + '&source_field=' + encodeURIComponent(sourceField)
 					    + '&target_cpt=' + encodeURIComponent(target)
 				}).then(function(r){ return r.json(); }).then(function(d){
 					btn.disabled = false;
