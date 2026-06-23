@@ -4,6 +4,28 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-23 – v1.0.4 – Penetrační audit JsonLdFixer: 8 nálezů opraveno
+
+**Audit:** 8 úrovňový code-review (3 correctness + 3 cleanup + altitude + conventions), 9 kandidátů, 9 verifikací.
+
+| # | Závažnost | Nález | Oprava |
+|---|-----------|-------|--------|
+| 1 | 🔴 Kritická | `(string) preg_replace_callback(...)` → null na PCRE limitu → `wp_update_post('')` vymaže post | Null check před castem; `return -1` |
+| 2 | 🔴 Vysoká | Žádný CPT allowlist – `cpt=post` přepíše všechny WP posty | `StreamManager::find_by_cpt()` allowlist + `return` |
+| 3 | 🟡 Střední | JS `fetch()` bez `.catch()` – tlačítko trvale zamknuté při síťové chybě | Přidán `.catch()` do obou tlačítek (FAQ i JSON-LD) |
+| 4 | 🟡 Střední | `wp_update_post()` return ignorován – DB selhání počítáno jako úspěch | `is_wp_error()` + `=== 0` check; `return -1` na chybu |
+| 5 | 🟡 Střední | `strpos` guard příliš široký – přeskočí post s Rank Math `<script>` i když má rozbité JSON-LD | Guard přescopeován na wp:html blok pomocí regex |
+| 6 | 🟡 Střední | `posts_per_page=-1` bez timeoutu – riziko OOM/timeout na velkých instalacích | `wp_suspend_cache_invalidation(true/false)` okolo smyčky |
+| 7 | 🟠 Nízká | Chybí `return` po `wp_send_json_error()` | `return` přidán za každý `wp_send_json_error()` |
+| 8 | 🟠 Nízká | Prázdné `$cpt` → WP fallback na `post_type='post'` | Pokryto allowlistem (#2) – prázdný $cpt `find_by_cpt()` odmítne |
+| – | Refuted | json_decode null ambiguity – regex vylučuje false positive | Nevyžaduje opravu |
+
+**Bonus:** JSON re-enkódován přes `wp_json_encode()` aby hodnoty s `</script>` nezlomily markup. Přidán počítač `errors` do response.
+
+**Upravené soubory:** `includes/Admin/class-json-ld-fixer.php`, `includes/Admin/views/dashboard.php`, `slovnik-a-feedy.php`
+
+---
+
 ## 2026-06-23 – v1.0.3 – JSON-LD Fixer: oprava viditelného schema textu po importu
 
 **Problém:** Import CSV z live serveru odstranil `<script type="application/ld+json">` tagy (WP sanitizace). JSON-LD FAQ schema se zobrazovalo jako viditelný text na všech 480 stránkách glossary CPT.

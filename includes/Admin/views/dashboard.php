@@ -308,6 +308,7 @@ $log_warnings = Logger::count( Logger::WARNING );
 				document.querySelectorAll('.saf-faq-fix-btn').forEach(function(btn){
 					btn.addEventListener('click', function(){
 						btn.disabled = true;
+						var origFaqLabel = '🔧 ' + btn.dataset.cpt;
 						btn.textContent = '⏳ Opravuji...';
 						var status = document.getElementById('saf-faq-fix-status');
 						fetch(btn.dataset.ajax, {
@@ -316,7 +317,7 @@ $log_warnings = Logger::count( Logger::WARNING );
 							body:'action=saf_fix_faq&nonce='+btn.dataset.nonce+'&cpt='+btn.dataset.cpt
 						}).then(function(r){return r.json();}).then(function(d){
 							btn.disabled = false;
-							btn.textContent = '🔧 ' + btn.dataset.cpt;
+							btn.textContent = origFaqLabel;
 							if(d.success){
 								status.textContent = '✓ ' + d.data.message;
 								status.style.display = '';
@@ -326,6 +327,12 @@ $log_warnings = Logger::count( Logger::WARNING );
 								status.style.display = '';
 								status.style.color = '#e94560';
 							}
+						}).catch(function(e){
+							btn.disabled = false;
+							btn.textContent = origFaqLabel;
+							status.textContent = '✗ Chyba sítě: ' + e.message;
+							status.style.display = '';
+							status.style.color = '#e94560';
 						});
 					});
 				});
@@ -375,6 +382,12 @@ $log_warnings = Logger::count( Logger::WARNING );
 								status.style.display = '';
 								status.style.color = '#e94560';
 							}
+						}).catch(function(e){
+							btn.disabled = false;
+							btn.textContent = origLabel;
+							status.textContent = '✗ Chyba sítě: ' + e.message;
+							status.style.display = '';
+							status.style.color = '#e94560';
 						});
 					});
 				});
