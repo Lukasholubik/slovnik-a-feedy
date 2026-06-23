@@ -4,6 +4,23 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-23 – v1.0.5 – GitHub Updater: automatické aktualizace z GitHub releases
+
+**Co bylo přidáno:** Nová třída `GithubUpdater` – plugin si teď sám hlídá nové verze na GitHubu.
+
+- Hák `pre_set_site_transient_update_plugins` → injektuje info o nové verzi do WP update systému
+- Hák `plugins_api` → WP popup "Details" zobrazí changelog z GitHub release body
+- Hák `upgrader_post_install` → přejmenuje složku po upgradu (GitHub zipball má hash v názvu)
+- Cache na 12 hodin (transient `saf_github_update_info`)
+- Veřejné repo, bez autentizace (GitHub API /releases/latest)
+
+**Registrace:** `GithubUpdater::register()` voláno přímo z `slovnik-a-feedy.php` před `plugins_loaded` – updater běží co nejdříve.
+
+**Nové soubory:** `includes/class-github-updater.php`
+**Upravené soubory:** `slovnik-a-feedy.php`
+
+---
+
 ## 2026-06-23 – v1.0.4 – Penetrační audit JsonLdFixer: 8 nálezů opraveno
 
 **Audit:** 8 úrovňový code-review (3 correctness + 3 cleanup + altitude + conventions), 9 kandidátů, 9 verifikací.
