@@ -36,9 +36,49 @@ $log_warnings = Logger::count( Logger::WARNING );
 		<span class="saf-header__version">
 			v<?php echo esc_html( SAF_VERSION ); ?>
 			&nbsp;·&nbsp;
-			<a href="<?php echo esc_url( admin_url( 'update-core.php?force-check=1' ) ); ?>" style="font-size:12px;font-weight:400">
-				<?php esc_html_e( '↻ Zkontrolovat aktualizace', 'slovnik-a-feedy' ); ?>
-			</a>
+			<button type="button" id="saf-force-update-btn"
+				data-nonce="<?php echo esc_attr( wp_create_nonce( 'saf_force_update_check' ) ); ?>"
+				data-ajax="<?php echo esc_attr( admin_url( 'admin-ajax.php' ) ); ?>"
+				style="background:none;border:none;padding:0;font-size:12px;font-weight:400;color:#2271b1;cursor:pointer;text-decoration:underline">
+				↻ <?php esc_html_e( 'Zkontrolovat aktualizace', 'slovnik-a-feedy' ); ?>
+			</button>
+			<span id="saf-force-update-result" style="font-size:12px;margin-left:6px;display:none"></span>
+			<script>
+			(function(){
+				var btn = document.getElementById('saf-force-update-btn');
+				if (!btn) return;
+				btn.addEventListener('click', function(){
+					btn.disabled = true;
+					btn.textContent = '⏳ Kontroluji...';
+					var result = document.getElementById('saf-force-update-result');
+					fetch(btn.dataset.ajax, {
+						method: 'POST',
+						headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+						body: 'action=saf_force_update_check&nonce=' + btn.dataset.nonce
+					}).then(function(r){ return r.json(); }).then(function(d){
+						btn.disabled = false;
+						btn.textContent = '↻ Zkontrolovat aktualizace';
+						result.style.display = '';
+						if (d.success) {
+							result.textContent = d.data.message;
+							result.style.color = d.data.has_update ? '#e67e00' : '#2d7738';
+							if (d.data.has_update) {
+								result.innerHTML = d.data.message + ' – <a href="' + '<?php echo esc_js( admin_url( "plugins.php" ) ); ?>" >přejít na aktualizace</a>';
+							}
+						} else {
+							result.textContent = '✗ Chyba: ' + (d.data || 'neznámá');
+							result.style.color = '#e94560';
+						}
+					}).catch(function(e){
+						btn.disabled = false;
+						btn.textContent = '↻ Zkontrolovat aktualizace';
+						result.textContent = '✗ Síťová chyba';
+						result.style.color = '#e94560';
+						result.style.display = '';
+					});
+				});
+			}());
+			</script>
 		</span>
 	</div>
 

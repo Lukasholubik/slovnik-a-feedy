@@ -3,7 +3,7 @@
  * Plugin Name:       Slovník a Feedy
  * Plugin URI:        https://grou.cz
  * Description:       Spravuje streamy slovníčku pojmů s hromadným importem z CSV/XML/Google Sheets a generuje RSS feedy. Součást rodiny pluginů Grou.cz.
- * Version:           1.0.8
+ * Version:           1.0.9
  * Author:            Grou.cz
  * Author URI:        https://grou.cz
  * License:           GPL-2.0+
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'SAF_VERSION',  '1.0.8' );
+define( 'SAF_VERSION',  '1.0.9' );
 define( 'SAF_FILE',     __FILE__ );
 define( 'SAF_DIR',      plugin_dir_path( __FILE__ ) );
 define( 'SAF_URL',      plugin_dir_url( __FILE__ ) );
