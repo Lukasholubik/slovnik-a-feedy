@@ -315,7 +315,6 @@ final class JsonLdFixer {
 	 * Volání: /wp-admin/admin-ajax.php?action=saf_debug_json_ld_post&slug=welcome-serie&nonce=XXX
 	 */
 	public static function ajax_debug_post(): void {
-		check_ajax_referer( 'saf_fix_json_ld', 'nonce' );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( 'Nedostatečná oprávnění.' );
 			return;
