@@ -90,6 +90,11 @@ final class FaqFixer {
 			'post_content' => $fixed,
 		] );
 
+		// Pročisti WP Rocket cache pro tento post.
+		if ( function_exists( 'rocket_clean_post' ) ) {
+			rocket_clean_post( $post_id );
+		}
+
 		return $fixed_n;
 	}
 
