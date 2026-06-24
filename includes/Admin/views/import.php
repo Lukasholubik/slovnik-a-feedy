@@ -212,18 +212,37 @@ $step_labels = [
 					</form>
 					<!-- ↩ Vrátit zpět nově vytvořené záznamy -->
 					<?php
-					$revert_count = count( $ses['created_ids'] ?? [] );
-					$reverted     = ! empty( $ses['reverted'] );
-					if ( $revert_count > 0 && ! $reverted ) :
+					$r_created     = (int) ( $ses['result']['created'] ?? 0 );
+					$revert_ids    = $ses['created_ids'] ?? [];
+					$revert_count  = count( $revert_ids );
+					$reverted      = ! empty( $ses['reverted'] );
+					$has_exact     = $revert_count > 0;
+					$has_approx    = ! $has_exact && $r_created > 0;
+
+					if ( ( $has_exact || $has_approx ) && ! $reverted ) :
+						if ( $has_exact ) :
+							$confirm_msg = sprintf(
+								esc_js( __( 'Vrátit zpět? %d nově vytvořených záznamů bude přesunuto do koše.\nAktualizované záznamy lze vrátit přes Revize v editoru.', 'slovnik-a-feedy' ) ),
+								$revert_count
+							);
+							$btn_label = sprintf( 'Vrátit (%d)', $revert_count );
+						else :
+							$confirm_msg = sprintf(
+								esc_js( __( "Přibližný revert: hledám záznamy vytvořené v době importu (%d očekáváno).\nMohly být nalezeny i záznamy z jiných operací ve stejnou dobu.\nPokračovat?", 'slovnik-a-feedy' ) ),
+								$r_created
+							);
+							$btn_label = sprintf( 'Vrátit (~%d)', $r_created );
+						endif;
 					?>
 					<form method="post" style="display:inline;margin-left:4px">
 						<?php wp_nonce_field( 'saf_revert_import', 'saf_revert_nonce' ); ?>
 						<input type="hidden" name="saf_action" value="revert_import">
 						<input type="hidden" name="session_id" value="<?php echo esc_attr( $sid ); ?>">
-						<button type="submit" class="button button-small saf-btn-revert"
-							onclick="return confirm('<?php printf( esc_js( __( 'Vrátit zpět? %d nově vytvořených záznamů bude přesunuto do koše.\nAktualizované záznamy lze vrátit přes Revize v editoru.', 'slovnik-a-feedy' ) ), $revert_count ); ?>')">
-							↩ <?php esc_html_e( 'Vrátit', 'slovnik-a-feedy' ); ?>
-							<span style="font-size:10px;opacity:.75">(<?php echo esc_html( $revert_count ); ?>)</span>
+						<button type="submit"
+							class="button button-small saf-btn-revert<?php echo $has_approx ? ' saf-btn-revert--approx' : ''; ?>"
+							title="<?php echo $has_approx ? esc_attr__( 'Starší import – záznamy se hledají podle času', 'slovnik-a-feedy' ) : ''; ?>"
+							onclick="return confirm('<?php echo $confirm_msg; ?>')">
+							↩ <?php echo esc_html( $btn_label ); ?>
 						</button>
 					</form>
 					<?php elseif ( $reverted ) : ?>

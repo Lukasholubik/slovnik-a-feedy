@@ -202,6 +202,7 @@ final class ImportPage {
 			ImportSessionRegistry::register( $session_id, [
 				'last_step'   => 1,
 				'stream_name' => $stream['name'] ?? '',
+				'stream_cpt'  => $stream['cpt']  ?? '',
 				'source_type' => $source_type,
 				'file_name'   => $file_name,
 				'source_url'  => $source_url,
@@ -497,7 +498,26 @@ final class ImportPage {
 			return;
 		}
 
-		$trashed = ImportSessionRegistry::revert( $session_id );
+		// Pokud máme přesná ID (nové importy), použijeme je.
+		// Pro starší importy bez uložených ID zkusíme retroaktivní lookup podle timestampu.
+		$created_ids = (array) ( $ses['created_ids'] ?? [] );
+
+		if ( empty( $created_ids ) && ( $ses['result']['created'] ?? 0 ) > 0 ) {
+			$created_ids = $this->find_created_ids_by_timestamp( $ses );
+		}
+
+		if ( empty( $created_ids ) ) {
+			$this->view_data['notice'] = __( 'Žádné záznamy k vrácení nenalezeny.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		$trashed = 0;
+		foreach ( $created_ids as $post_id ) {
+			if ( wp_trash_post( (int) $post_id ) ) {
+				$trashed++;
+			}
+		}
+		ImportSessionRegistry::update( $session_id, [ 'reverted' => true, 'created_ids' => [] ] );
 
 		$this->view_data['notice'] = sprintf(
 			_n(
@@ -508,6 +528,58 @@ final class ImportPage {
 			),
 			$trashed
 		);
+	}
+
+	/**
+	 * Retroaktivní hledání postů vytvořených v době importu.
+	 * Používá se pro starší importy bez uložených created_ids.
+	 * Výsledek je spolehlivý protože wp_insert_post() nastaví post_date na čas vytvoření
+	 * a wp_update_post() post_date NEMĚNÍ – takže updated posty tento filtr neprojdou.
+	 *
+	 * @return int[]
+	 */
+	private function find_created_ids_by_timestamp( array $ses ): array {
+		// Zjisti CPT – buď přímo uložené nebo dohledej podle názvu streamu.
+		$stream_cpt = $ses['stream_cpt'] ?? '';
+		if ( ! $stream_cpt && ! empty( $ses['stream_name'] ) ) {
+			foreach ( \SlovnikAFeedy\StreamManager::get_all() as $stream ) {
+				if ( $stream['name'] === $ses['stream_name'] ) {
+					$stream_cpt = $stream['cpt'];
+					break;
+				}
+			}
+		}
+
+		if ( ! $stream_cpt ) {
+			return [];
+		}
+
+		// Okno: od zahájení importu −2 min do dokončení +10 min.
+		$from = gmdate( 'Y-m-d H:i:s', strtotime( $ses['created_at'] ) - 120 );
+		$to   = gmdate( 'Y-m-d H:i:s', strtotime( $ses['updated_at'] ) + 600 );
+
+		$found = get_posts( [
+			'post_type'      => $stream_cpt,
+			'post_status'    => [ 'publish', 'draft' ],
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'date_query'     => [
+				[
+					'after'     => $from,
+					'before'    => $to,
+					'inclusive' => true,
+					'column'    => 'post_date_gmt',
+				],
+			],
+			'meta_query'     => [ // phpcs:ignore WordPress.DB.SlowDBQuery
+				[
+					'key'     => \SlovnikAFeedy\Importer\Importer::META_EXTERNAL_ID,
+					'compare' => 'EXISTS',
+				],
+			],
+		] );
+
+		return array_map( 'intval', $found );
 	}
 
 	/** Smazání import presetu. */
