@@ -152,7 +152,8 @@ final class Plugin {
 		// FAQ Fixer AJAX.
 		Admin\FaqFixer::register_ajax();
 
-		// JSON-LD Fixer AJAX.
+		// JSON-LD Fixer: frontend wp_head hook + AJAX.
+		Admin\JsonLdFixer::register_frontend_hook();
 		Admin\JsonLdFixer::register_ajax();
 
 		// Thumbnail Sync AJAX.

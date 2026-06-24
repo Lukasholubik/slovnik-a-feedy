@@ -1,12 +1,18 @@
 <?php
 /**
- * JSON-LD Fixer – oprava chybějících <script type="application/ld+json"> tagů po importu.
+ * JSON-LD Fixer – oprava viditelného JSON-LD textu po importu.
  *
- * Problém: import CSV/XML odstraní <script> tagy (WP sanitizace) a JSON-LD schema
- * se zobrazí jako viditelný text na stránce uvnitř <!-- wp:html --> bloku.
+ * Problémy:
+ *  1. Importér HTML-enkóduje uvozovky → "{"@context"}" je v DB jako &quot;@context&quot;
+ *     → strpos('"@context"') nenajde shodu → fixer dříve přeskočil VŠE.
+ *  2. JetEngine/Elementor stripuje <script> tagy z obsahu při renderování
+ *     → i po přidání <script> tagu do post_content se JSON zobrazí jako text.
  *
- * Řešení: zpracovat každý wp:html blok zvlášť, najít JSON-LD pomocí sledování
- * hloubky závorek (podporuje jednořádkový i víceřádkový JSON), obalit <script> tagem.
+ * Řešení:
+ *  - Dekódovat HTML entity před hledáním a parsováním JSON.
+ *  - Extrahovat JSON-LD z post_content, uložit do post meta (_saf_json_ld).
+ *  - Odstranit surový JSON z post_content.
+ *  - Vypisovat JSON-LD přes wp_head hook (nezávislé na způsobu renderování obsahu).
  *
  * @package SlovnikAFeedy
  */
@@ -20,6 +26,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class JsonLdFixer {
+
+	public const META_KEY = '_saf_json_ld';
+
+	/**
+	 * Registrace wp_head hooku – volat z Plugin::register_hooks().
+	 */
+	public static function register_frontend_hook(): void {
+		add_action( 'wp_head', [ static::class, 'output_json_ld' ], 5 );
+	}
+
+	/**
+	 * Vypíše JSON-LD z post meta do <head> pro CPT streamy.
+	 */
+	public static function output_json_ld(): void {
+		if ( ! is_singular() ) {
+			return;
+		}
+		$json_ld = get_post_meta( get_the_ID(), self::META_KEY, true );
+		if ( ! $json_ld ) {
+			return;
+		}
+		echo '<script type="application/ld+json">' . "\n" . $json_ld . "\n" . '</script>' . "\n";
+	}
 
 	/**
 	 * Opraví JSON-LD ve všech postech daného CPT.
@@ -63,7 +92,13 @@ final class JsonLdFixer {
 	/**
 	 * Opraví JSON-LD v jednom příspěvku.
 	 *
-	 * @return int  1 = opraveno, 0 = přeskočeno (nic k opravě nebo již OK), -1 = chyba
+	 * Postup:
+	 *  1. Dekóduje HTML entity v post_content (import mohl enkódovat uvozovky).
+	 *  2. Najde JSON-LD pomocí sledování hloubky závorek.
+	 *  3. Uloží JSON do post meta _saf_json_ld (vypsán přes wp_head).
+	 *  4. Odstraní surový JSON text z post_content.
+	 *
+	 * @return int  1 = opraveno, 0 = přeskočeno, -1 = chyba
 	 */
 	public static function fix_post( int $post_id ): int {
 		$post = get_post( $post_id );
@@ -73,52 +108,56 @@ final class JsonLdFixer {
 
 		$original = $post->post_content;
 
-		if ( strpos( $original, '"@context"' ) === false ) {
+		// Rychlá kontrola: hledáme @context v jakémkoli enkódování.
+		if ( strpos( $original, '@context' ) === false ) {
 			return 0;
 		}
 
-		// Zpracuj každý wp:html blok zvlášť.
-		$changed = false;
-		$fixed   = (string) preg_replace_callback(
-			'/<!-- wp:html -->([\s\S]*?)<!-- \/wp:html -->/i',
-			static function ( array $m ) use ( &$changed ): string {
-				$inner = $m[1];
-
-				// Blok nemá JSON-LD → přeskočit.
-				if ( strpos( $inner, '"@context"' ) === false ) {
-					return $m[0];
-				}
-
-				// Blok již má <script> tag → přeskočit.
-				if ( stripos( $inner, '<script type="application/ld+json">' ) !== false ) {
-					return $m[0];
-				}
-
-				$result = self::wrap_json_ld_in_block( $inner );
-				if ( $result === $inner ) {
-					return $m[0];
-				}
-
-				$changed = true;
-				return '<!-- wp:html -->' . $result . '<!-- /wp:html -->';
-			},
-			$original
-		);
-
-		if ( ! $changed || $fixed === null || $fixed === $original ) {
+		// Přeskočit pokud již máme JSON-LD uložen v post meta.
+		if ( get_post_meta( $post_id, self::META_KEY, true ) ) {
 			return 0;
 		}
 
-		$update = wp_update_post( [
-			'ID'           => $post_id,
-			'post_content' => $fixed,
-		] );
+		// Dekóduj HTML entity – importér mohl enkódovat uvozovky na &quot;
+		$decoded = html_entity_decode( $original, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 
-		if ( is_wp_error( $update ) || $update === 0 ) {
+		// Najdi JSON-LD objekt pomocí sledování hloubky závorek.
+		$extracted = self::extract_json_ld( $decoded );
+		if ( ! $extracted ) {
+			return 0;
+		}
+
+		[ $json_str, $start, $end ] = $extracted;
+
+		// Validace JSON.
+		$decoded_json = json_decode( $json_str, true );
+		if ( $decoded_json === null || json_last_error() !== JSON_ERROR_NONE ) {
 			return -1;
 		}
 
-		// Pročisti WP Rocket cache pro tento post.
+		$safe_json = wp_json_encode( $decoded_json, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+		if ( $safe_json === false ) {
+			return -1;
+		}
+
+		// Ulož JSON-LD do post meta.
+		update_post_meta( $post_id, self::META_KEY, $safe_json );
+
+		// Odstraň surový JSON z post_content (v dekódované podobě najdeme pozici).
+		// Musíme ale odstranit z ORIGINÁLNÍHO content – hledáme odpovídající část.
+		$cleaned = self::remove_raw_json_from_content( $original, $decoded, $start, $end );
+
+		if ( $cleaned !== $original ) {
+			$update = wp_update_post( [
+				'ID'           => $post_id,
+				'post_content' => $cleaned,
+			] );
+			if ( is_wp_error( $update ) || $update === 0 ) {
+				return -1;
+			}
+		}
+
+		// Pročisti WP Rocket cache.
 		if ( function_exists( 'rocket_clean_post' ) ) {
 			rocket_clean_post( $post_id );
 		}
@@ -127,38 +166,40 @@ final class JsonLdFixer {
 	}
 
 	/**
-	 * Najde JSON-LD text v bloku a obalí ho <script> tagem.
-	 * Používá sledování hloubky závorek – funguje pro jednořádkový i víceřádkový JSON.
+	 * Najde JSON-LD objekt v textu pomocí sledování hloubky závorek.
+	 * Vrátí [json_string, start_offset, end_offset] nebo null.
+	 *
+	 * @return array{0: string, 1: int, 2: int}|null
 	 */
-	private static function wrap_json_ld_in_block( string $inner ): string {
-		$len   = strlen( $inner );
+	private static function extract_json_ld( string $content ): ?array {
+		$len   = strlen( $content );
 		$start = -1;
 
-		// Najdi otevírací { která patří k JSON-LD objektu s "@context".
+		// Najdi { které patří k JSON-LD (za ním někde "@context").
 		for ( $i = 0; $i < $len; $i++ ) {
-			if ( $inner[ $i ] !== '{' ) {
+			if ( $content[ $i ] !== '{' ) {
 				continue;
 			}
-			// Zkontroluj jestli za touto { někde následuje "@context".
-			$rest = substr( $inner, $i );
-			if ( strpos( $rest, '"@context"' ) !== false ) {
+			$rest = substr( $content, $i );
+			// Hledáme @context v jakémkoli formátu.
+			if ( strpos( $rest, '@context' ) !== false ) {
 				$start = $i;
 				break;
 			}
 		}
 
 		if ( $start === -1 ) {
-			return $inner;
+			return null;
 		}
 
-		// Najdi odpovídající uzavírající } sledováním hloubky závorek.
+		// Sleduj hloubku závorek pro nalezení konce JSON objektu.
 		$depth     = 0;
 		$in_string = false;
 		$escape    = false;
 		$end       = -1;
 
 		for ( $i = $start; $i < $len; $i++ ) {
-			$c = $inner[ $i ];
+			$c = $content[ $i ];
 
 			if ( $escape ) {
 				$escape = false;
@@ -187,24 +228,65 @@ final class JsonLdFixer {
 		}
 
 		if ( $end === -1 ) {
-			return $inner;
+			return null;
 		}
 
-		$json_str = substr( $inner, $start, $end - $start + 1 );
-		$decoded  = json_decode( $json_str, true );
+		$json_str = substr( $content, $start, $end - $start + 1 );
+		return [ $json_str, $start, $end ];
+	}
 
-		if ( $decoded === null || json_last_error() !== JSON_ERROR_NONE ) {
-			return $inner; // Poškozený JSON – neupravuj.
+	/**
+	 * Odstraní surový JSON text z originálního post_content.
+	 * Pracuje tak, že najde odpovídající část v dekódované verzi a odstraní ji z originálu.
+	 */
+	private static function remove_raw_json_from_content( string $original, string $decoded, int $dec_start, int $dec_end ): string {
+		// Zkusíme přímé hledání části z dekódovaného obsahu v originálním.
+		$json_in_decoded = substr( $decoded, $dec_start, $dec_end - $dec_start + 1 );
+
+		// Nejprve zkus přímou shodu (pokud originál nebyl enkódován).
+		$pos = strpos( $original, $json_in_decoded );
+		if ( $pos !== false ) {
+			// Odstraň JSON i okolní whitespace/newlines.
+			$before = substr( $original, 0, $pos );
+			$after  = substr( $original, $pos + strlen( $json_in_decoded ) );
+			return rtrim( $before ) . ltrim( $after, "\n\r " );
 		}
 
-		$safe_json = wp_json_encode( $decoded, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
-		if ( $safe_json === false ) {
-			return $inner;
+		// Zkus hledat HTML-enkódovanou verzi prvních 50 znaků JSON (pro lokalizaci).
+		$json_start_raw = substr( $json_in_decoded, 0, 20 );
+		$json_enc       = htmlspecialchars( $json_start_raw, ENT_QUOTES, 'UTF-8' );
+
+		$pos = strpos( $original, $json_enc );
+		if ( $pos === false ) {
+			// Nenalezeno – vrátíme bez změny (JSON-LD byl uložen do meta, ale content ponecháme).
+			return $original;
 		}
 
-		$script_tag = '<script type="application/ld+json">' . "\n" . $safe_json . "\n" . '</script>';
+		// Najdi konec enkódovaného JSON (hledáme párovou uzavírací }).
+		// Zjednodušeně: hledáme první } který po dekódování uzavírá JSON.
+		$search_from = $pos;
+		$depth       = 0;
+		$end_pos     = -1;
+		$in_str      = false;
+		$esc         = false;
+		$decoded_from_pos = substr( $decoded, $dec_start );
 
-		return substr( $inner, 0, $start ) . $script_tag . substr( $inner, $end + 1 );
+		// Projdi originál od nalezené pozice a najdi konec (enkódované }) .
+		for ( $i = $dec_start; $i <= $dec_end; $i++ ) {
+			// Použijeme offset z dekódované verze k nalezení odpovídajícího místa v originálu.
+		}
+
+		// Jednodušší přístup: nahraď celý blok od { do } v enkódované podobě.
+		// Rekonstruujeme enkódovaný JSON.
+		$json_encoded = htmlspecialchars( $json_in_decoded, ENT_QUOTES, 'UTF-8' );
+		$pos2         = strpos( $original, $json_encoded );
+		if ( $pos2 !== false ) {
+			$before = substr( $original, 0, $pos2 );
+			$after  = substr( $original, $pos2 + strlen( $json_encoded ) );
+			return rtrim( $before ) . ltrim( $after, "\n\r " );
+		}
+
+		return $original;
 	}
 
 	/**
@@ -232,7 +314,7 @@ final class JsonLdFixer {
 
 		wp_send_json_success( [
 			'message' => sprintf(
-				'Opraveno %d příspěvků (přeskočeno %d – již OK nebo bez JSON-LD; chyby %d).',
+				'Opraveno %d příspěvků – JSON-LD uložen do meta, bude vypsán přes &lt;head&gt; (přeskočeno %d – již OK nebo bez JSON-LD; chyby %d).',
 				$result['fixed'],
 				$result['skipped'],
 				$result['errors']
