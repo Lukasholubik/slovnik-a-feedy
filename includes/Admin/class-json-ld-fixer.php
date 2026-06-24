@@ -138,7 +138,14 @@ final class JsonLdFixer {
 		[ $json_str, $start, $end ] = $extracted;
 
 		// Validace JSON.
+		// Časté: importovaný JSON-LD obsahuje HTML linky v hodnotách (napr. <a href="...">)
+		// s doslovanými uvozovkami v href atributu → rozbijí JSON parsování.
+		// Řešení: při selhání zkus strip_tags (odstraní HTML tagy včetně href uvozovek).
 		$decoded_json = json_decode( $json_str, true );
+		if ( $decoded_json === null ) {
+			$json_no_html = strip_tags( $json_str );
+			$decoded_json = json_decode( $json_no_html, true );
+		}
 		if ( $decoded_json === null || json_last_error() !== JSON_ERROR_NONE ) {
 			return -1;
 		}
