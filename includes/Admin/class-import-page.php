@@ -28,9 +28,10 @@ final class ImportPage {
 
 	public const PAGE_SLUG       = 'slovnik-a-feedy-import';
 	public const CAP             = AdminMenu::CAP;
-	private const TRANSIENT_TTL  = WEEK_IN_SECONDS; // 7 dní – session přežije přestávku
+	private const TRANSIENT_TTL  = MONTH_IN_SECONDS * 3; // 90 dní (WP Rocket nemaže nevypršené transienty)
 	private const TRANSIENT_KEY  = 'saf_import_session_';
 	private const MAX_FILE_SIZE  = 10 * 1024 * 1024; // 10 MB
+	private const LAST_IMPORT_OPT = 'saf_last_import_data'; // trvalé úložiště posledního importu
 
 	/** Výsledky aktuálního requestu předané do view. */
 	private array $view_data = [];
@@ -343,10 +344,41 @@ final class ImportPage {
 				'notice'       => __( '↻ Opakování importu – uprav makra nebo pokračuj přímo na šablonu.', 'slovnik-a-feedy' ),
 			] );
 		} else {
-			// Session expirovala → předvyplň krok 0.
-			$this->view_data['repeat_url']         = $ses['source_url']  ?? '';
-			$this->view_data['repeat_stream_name']  = $ses['stream_name'] ?? '';
-			$this->view_data['notice']              = __( 'Relace vypršela (7 dní). URL je předvyplněna – klikni Nahrát a detekovat sloupce.', 'slovnik-a-feedy' );
+			// Session expirovala – zkus trvalé úložiště posledního importu.
+			$last = get_option( self::LAST_IMPORT_OPT, null );
+
+			if ( is_array( $last ) && ( $last['session_id'] ?? '' ) === $history_id ) {
+				// Obnov session z trvalého úložiště a pokračuj rovnou na krok 1 s mapováním.
+				$restored = $last['session'];
+				$this->save_session( $history_id, $restored );
+				ImportSessionRegistry::update( $history_id, [ 'status' => ImportSessionRegistry::STATUS_ACTIVE ] );
+
+				if ( ! empty( $restored['template_id'] ) ) {
+					update_option( 'saf_last_template_id', (int) $restored['template_id'] );
+				}
+
+				$macro_preview = self::apply_macro_names(
+					$restored['preview_rows'][0] ?? [],
+					$restored['macro_names'] ?? []
+				);
+				$this->view_data = array_merge( $this->view_data, [
+					'step'         => 1,
+					'session_id'   => $history_id,
+					'columns'      => $restored['columns']      ?? [],
+					'macro_names'  => $restored['macro_names']  ?? [],
+					'auto_mapping' => $restored['mapping']      ?? [],
+					'fields'       => Mapper::FIELDS,
+					'stream'       => $restored['stream']       ?? [],
+					'preview_rows' => $restored['preview_rows'] ?? [],
+					'total_rows'   => $restored['total_rows']   ?? 0,
+					'notice'       => __( '↻ Obnoveno z trvalého úložiště – uprav makra nebo pokračuj přímo na šablonu.', 'slovnik-a-feedy' ),
+				] );
+			} else {
+				// Starší import bez zálohy – předvyplň jen URL (stará cesta).
+				$this->view_data['repeat_url']        = $ses['source_url']  ?? '';
+				$this->view_data['repeat_stream_name'] = $ses['stream_name'] ?? '';
+				$this->view_data['notice']             = __( 'Relace vypršela. URL je předvyplněna – klikni Nahrát a detekovat sloupce.', 'slovnik-a-feedy' );
+			}
 		}
 	}
 
@@ -755,6 +787,11 @@ final class ImportPage {
 
 		$result = BatchRunner::start( $rows, $config );
 
+		// Trvalé úložiště posledního importu (přežije expiraci transientu).
+		if ( ! $is_dry_run ) {
+			$this->persist_last_import( $session_id, $session, $template_post_id );
+		}
+
 		// Zaznamenej výsledek v registru (jen pro sync – async to udělá BatchRunner po posledním ticku).
 		if ( ! $is_dry_run && $result['mode'] === 'sync' ) {
 			$stats = $result['stats'] ?? [];
@@ -1055,6 +1092,42 @@ final class ImportPage {
 
 	// -------------------------------------------------------------------------
 	// Upload adresář.
+
+	/**
+	 * Uloží data posledního importu trvale do WP option (přežije expiraci transitentu).
+	 * Kopíruje zdrojový soubor do trvalého adresáře aby byl dostupný i po 90 dnech.
+	 */
+	private function persist_last_import( string $session_id, array $session, int $template_id ): void {
+		$file_path = $session['file_path'] ?? '';
+
+		// Pokud máme fyzický soubor (ne jen URL), zkopíruj ho do trvalého adresáře.
+		if ( $file_path && file_exists( $file_path ) ) {
+			try {
+				$upload_dir = $this->ensure_upload_dir();
+				$perm_dir   = $upload_dir . '/permanent';
+				if ( ! file_exists( $perm_dir ) ) {
+					wp_mkdir_p( $perm_dir );
+					file_put_contents( $perm_dir . '/.htaccess', "Order allow,deny\nDeny from all\n" ); // phpcs:ignore
+					file_put_contents( $perm_dir . '/index.php', '<?php // Silence is golden.' );       // phpcs:ignore
+				}
+				$ext       = pathinfo( $file_path, PATHINFO_EXTENSION ) ?: 'csv';
+				$cpt_slug  = sanitize_key( $session['stream']['cpt'] ?? 'import' );
+				$perm_path = $perm_dir . '/last-' . $cpt_slug . '.' . $ext;
+				copy( $file_path, $perm_path );
+				$session['file_path'] = $perm_path;
+			} catch ( \Throwable $e ) {
+				// Selhání kopírování není fatální – URL fallback stále funguje.
+			}
+		}
+
+		$session['template_id'] = $template_id;
+
+		update_option( self::LAST_IMPORT_OPT, [
+			'session_id' => $session_id,
+			'session'    => $session,
+			'saved_at'   => current_time( 'mysql' ),
+		], false );
+	}
 
 	private function ensure_upload_dir(): string {
 		$dir = wp_upload_dir()['basedir'] . '/saf-imports';
