@@ -98,13 +98,37 @@ final class ImportSessionRegistry {
 
 	/**
 	 * Označí relaci jako dokončenou.
+	 *
+	 * @param int[]  $created_ids  Post IDs nově vytvořených záznamů (pro revert).
 	 */
-	public static function complete( string $session_id, int $created, int $updated, int $skipped ): void {
+	public static function complete( string $session_id, int $created, int $updated, int $skipped, array $created_ids = [] ): void {
 		static::update( $session_id, [
-			'status'    => self::STATUS_COMPLETED,
-			'last_step' => 3,
-			'result'    => compact( 'created', 'updated', 'skipped' ),
+			'status'      => self::STATUS_COMPLETED,
+			'last_step'   => 3,
+			'result'      => compact( 'created', 'updated', 'skipped' ),
+			'created_ids' => array_map( 'intval', $created_ids ),
 		] );
+	}
+
+	/**
+	 * Vrátí import zpět – přesune nově vytvořené záznamy do koše.
+	 * Aktualizované záznamy lze vrátit přes WP revize v editoru.
+	 *
+	 * @return int  Počet přesunutých do koše.
+	 */
+	public static function revert( string $session_id ): int {
+		$ses = static::get( $session_id );
+		if ( ! $ses ) {
+			return 0;
+		}
+		$trashed = 0;
+		foreach ( (array) ( $ses['created_ids'] ?? [] ) as $post_id ) {
+			if ( wp_trash_post( (int) $post_id ) ) {
+				$trashed++;
+			}
+		}
+		static::update( $session_id, [ 'reverted' => true, 'created_ids' => [] ] );
+		return $trashed;
 	}
 
 	/**

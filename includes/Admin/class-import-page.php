@@ -85,6 +85,10 @@ final class ImportPage {
 			$this->handle_delete_session();
 			return;
 		}
+		if ( $action === 'revert_import' ) {
+			$this->handle_revert_import();
+			return;
+		}
 
 		// Obecný import nonce.
 		$step         = absint( $_POST['saf_step'] ?? 0 );
@@ -475,6 +479,37 @@ final class ImportPage {
 		$this->view_data['notice'] = __( 'Preset byl uložen. Najdeš ho při příštím importu.', 'slovnik-a-feedy' );
 	}
 
+	/** Vrátí import zpět – trashe nově vytvořené záznamy. */
+	private function handle_revert_import(): void {
+		if ( ! isset( $_POST['saf_revert_nonce'] )
+			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['saf_revert_nonce'] ) ), 'saf_revert_import' )
+			|| ! current_user_can( self::CAP )
+		) {
+			$this->view_data['error'] = __( 'Neplatný token.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		$session_id = sanitize_key( $_POST['session_id'] ?? '' );
+		$ses        = ImportSessionRegistry::get( $session_id );
+
+		if ( ! $ses ) {
+			$this->view_data['notice'] = __( 'Záznam nenalezen.', 'slovnik-a-feedy' );
+			return;
+		}
+
+		$trashed = ImportSessionRegistry::revert( $session_id );
+
+		$this->view_data['notice'] = sprintf(
+			_n(
+				'Vráceno zpět: %d záznam přesunut do koše.',
+				'Vráceno zpět: %d záznamy přesunuty do koše.',
+				$trashed,
+				'slovnik-a-feedy'
+			),
+			$trashed
+		);
+	}
+
 	/** Smazání import presetu. */
 	private function handle_delete_preset(): void {
 		if ( ! isset( $_POST['saf_del_nonce'] )
@@ -594,6 +629,7 @@ final class ImportPage {
 			'default_status'  => $default_status,
 			'dry_run'         => $is_dry_run,
 			'force_overwrite' => $force_overwrite,
+			'session_id'      => $session_id,
 		];
 
 		// Zajisti dostupnost zdrojového souboru.
@@ -647,14 +683,15 @@ final class ImportPage {
 
 		$result = BatchRunner::start( $rows, $config );
 
-		// Zaznamenej výsledek v registru.
-		if ( ! $is_dry_run ) {
+		// Zaznamenej výsledek v registru (jen pro sync – async to udělá BatchRunner po posledním ticku).
+		if ( ! $is_dry_run && $result['mode'] === 'sync' ) {
 			$stats = $result['stats'] ?? [];
 			ImportSessionRegistry::complete(
 				$session_id,
 				(int) ( $stats['created'] ?? 0 ),
 				(int) ( $stats['updated'] ?? 0 ),
-				(int) ( $stats['skipped'] ?? 0 )
+				(int) ( $stats['skipped'] ?? 0 ),
+				$result['created_ids'] ?? []
 			);
 		}
 

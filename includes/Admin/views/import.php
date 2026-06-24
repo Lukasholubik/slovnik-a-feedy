@@ -171,17 +171,26 @@ $step_labels = [
 				</tr>
 			</thead>
 			<tbody>
-			<?php foreach ( array_reverse( $completed, true ) as $sid => $ses ) : ?>
-			<tr>
-				<td style="font-size:12px"><?php echo esc_html( date_i18n( 'd.m.Y H:i', strtotime( $ses['updated_at'] ) ) ); ?></td>
+			<?php $history_i = 0; foreach ( array_reverse( $completed, true ) as $sid => $ses ) : $history_i++; ?>
+			<tr class="<?php echo $history_i === 1 ? 'saf-history-latest' : ''; ?>">
+				<td style="font-size:12px">
+					<?php if ( $history_i === 1 ) : ?>
+					<strong><?php echo esc_html( date_i18n( 'd.m.Y H:i', strtotime( $ses['updated_at'] ) ) ); ?></strong>
+					<br><span class="saf-badge saf-badge--info" style="font-size:10px"><?php esc_html_e( 'Poslední', 'slovnik-a-feedy' ); ?></span>
+					<?php else : ?>
+					<?php echo esc_html( date_i18n( 'd.m.Y H:i', strtotime( $ses['updated_at'] ) ) ); ?>
+					<?php endif; ?>
+				</td>
 				<td><?php echo esc_html( $ses['file_name'] ?: '—' ); ?></td>
 				<td><?php echo esc_html( $ses['stream_name'] ?: '—' ); ?></td>
 				<td>
 					<?php if ( $ses['status'] === 'completed' ) : ?>
 						<?php $r = $ses['result'] ?? []; ?>
 						<span class="saf-badge saf-badge--info">✓ <?php
-							printf( esc_html__( '%d nových, %d aktualizováno', 'slovnik-a-feedy' ),
-								esc_html( $r['created'] ?? 0 ), esc_html( $r['updated'] ?? 0 )
+							printf(
+								esc_html__( '%d NOVÝCH, %d AKTUALIZOVÁNO', 'slovnik-a-feedy' ),
+								(int) ( $r['created'] ?? 0 ),
+								(int) ( $r['updated'] ?? 0 )
 							);
 						?></span>
 					<?php else : ?>
@@ -201,6 +210,25 @@ $step_labels = [
 							↻ <?php esc_html_e( 'Znovu', 'slovnik-a-feedy' ); ?>
 						</button>
 					</form>
+					<!-- ↩ Vrátit zpět nově vytvořené záznamy -->
+					<?php
+					$revert_count = count( $ses['created_ids'] ?? [] );
+					$reverted     = ! empty( $ses['reverted'] );
+					if ( $revert_count > 0 && ! $reverted ) :
+					?>
+					<form method="post" style="display:inline;margin-left:4px">
+						<?php wp_nonce_field( 'saf_revert_import', 'saf_revert_nonce' ); ?>
+						<input type="hidden" name="saf_action" value="revert_import">
+						<input type="hidden" name="session_id" value="<?php echo esc_attr( $sid ); ?>">
+						<button type="submit" class="button button-small saf-btn-revert"
+							onclick="return confirm('<?php printf( esc_js( __( 'Vrátit zpět? %d nově vytvořených záznamů bude přesunuto do koše.\nAktualizované záznamy lze vrátit přes Revize v editoru.', 'slovnik-a-feedy' ) ), $revert_count ); ?>')">
+							↩ <?php esc_html_e( 'Vrátit', 'slovnik-a-feedy' ); ?>
+							<span style="font-size:10px;opacity:.75">(<?php echo esc_html( $revert_count ); ?>)</span>
+						</button>
+					</form>
+					<?php elseif ( $reverted ) : ?>
+					<span style="font-size:11px;color:#888;margin-left:6px">↩ <?php esc_html_e( 'Vráceno', 'slovnik-a-feedy' ); ?></span>
+					<?php endif; ?>
 					<!-- 🗑 Smazat -->
 					<form method="post" style="display:inline;margin-left:4px">
 						<?php wp_nonce_field( 'saf_del_session', 'saf_del_ses_nonce' ); ?>

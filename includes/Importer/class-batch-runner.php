@@ -44,20 +44,31 @@ final class BatchRunner {
 	 * @return array{mode: string, stats?: array, batch_id?: string}
 	 */
 	public static function start( array $rows, array $config ): array {
-		if ( count( $rows ) <= self::DIRECT_LIMIT ) {
-			// Synchronní import.
+		$dry_run = $config['dry_run'] ?? false;
+
+		if ( count( $rows ) <= self::DIRECT_LIMIT || $dry_run ) {
+			// Synchronní import (vždy pro dry-run, pro malé soubory jinak).
 			$importer = self::build_importer( $config );
 			$source   = new ArraySource( $rows );
 			$stats    = $importer->run( $source );
-			return [ 'mode' => 'sync', 'stats' => $stats ];
+			return [
+				'mode'        => 'sync',
+				'stats'       => $stats,
+				'created_ids' => $importer->get_created_ids(),
+			];
 		}
 
 		// Dávkový import – ulož frontu a naplánuj první tick.
-		$batch_id = wp_generate_uuid4();
-		update_option( self::OPTION_PREFIX . $batch_id . '_rows',   $rows,   false );
-		update_option( self::OPTION_PREFIX . $batch_id . '_config', $config, false );
-		update_option( self::OPTION_PREFIX . $batch_id . '_offset', 0,       false );
-		update_option( self::OPTION_PREFIX . $batch_id . '_total',  count( $rows ), false );
+		$batch_id   = wp_generate_uuid4();
+		$session_id = $config['session_id'] ?? '';
+
+		update_option( self::OPTION_PREFIX . $batch_id . '_rows',        $rows,       false );
+		update_option( self::OPTION_PREFIX . $batch_id . '_config',      $config,     false );
+		update_option( self::OPTION_PREFIX . $batch_id . '_offset',      0,           false );
+		update_option( self::OPTION_PREFIX . $batch_id . '_total',       count( $rows ), false );
+		update_option( self::OPTION_PREFIX . $batch_id . '_session_id',  $session_id, false );
+		update_option( self::OPTION_PREFIX . $batch_id . '_stats',       [ 'created' => 0, 'updated' => 0, 'skipped' => 0 ], false );
+		update_option( self::OPTION_PREFIX . $batch_id . '_created_ids', [],          false );
 
 		wp_schedule_single_event( time() + 5, self::CRON_HOOK, [ $batch_id ] );
 
@@ -88,6 +99,21 @@ final class BatchRunner {
 		$source   = new ArraySource( $batch );
 		$importer->run( $source );
 
+		// Kumulace statistik přes dávky.
+		$tick_stats  = $importer->get_stats();
+		$prev_stats  = (array) get_option( self::OPTION_PREFIX . $batch_id . '_stats', [] );
+		$agg_stats   = [
+			'created' => ( $prev_stats['created'] ?? 0 ) + $tick_stats['created'],
+			'updated' => ( $prev_stats['updated'] ?? 0 ) + $tick_stats['updated'],
+			'skipped' => ( $prev_stats['skipped'] ?? 0 ) + $tick_stats['skipped'],
+		];
+		update_option( self::OPTION_PREFIX . $batch_id . '_stats', $agg_stats, false );
+
+		// Kumulace ID nově vytvořených postů.
+		$tick_ids  = $importer->get_created_ids();
+		$prev_ids  = (array) get_option( self::OPTION_PREFIX . $batch_id . '_created_ids', [] );
+		update_option( self::OPTION_PREFIX . $batch_id . '_created_ids', array_merge( $prev_ids, $tick_ids ), false );
+
 		$new_offset = $offset + count( $batch );
 		update_option( self::OPTION_PREFIX . $batch_id . '_offset', $new_offset, false );
 
@@ -101,6 +127,20 @@ final class BatchRunner {
 			wp_schedule_single_event( time() + 2, self::CRON_HOOK, [ $batch_id ] );
 		} else {
 			Logger::info( "Batch import dokončen (batch_id: {$batch_id})", 'batch-import' );
+
+			// Zaznamenej výsledek do registru relací.
+			$session_id = (string) get_option( self::OPTION_PREFIX . $batch_id . '_session_id', '' );
+			if ( $session_id ) {
+				$created_ids = (array) get_option( self::OPTION_PREFIX . $batch_id . '_created_ids', [] );
+				\SlovnikAFeedy\Admin\ImportSessionRegistry::complete(
+					$session_id,
+					(int) ( $agg_stats['created'] ?? 0 ),
+					(int) ( $agg_stats['updated'] ?? 0 ),
+					(int) ( $agg_stats['skipped'] ?? 0 ),
+					$created_ids
+				);
+			}
+
 			self::cleanup( $batch_id );
 		}
 	}
@@ -130,6 +170,9 @@ final class BatchRunner {
 		delete_option( self::OPTION_PREFIX . $batch_id . '_config' );
 		delete_option( self::OPTION_PREFIX . $batch_id . '_offset' );
 		delete_option( self::OPTION_PREFIX . $batch_id . '_total' );
+		delete_option( self::OPTION_PREFIX . $batch_id . '_session_id' );
+		delete_option( self::OPTION_PREFIX . $batch_id . '_stats' );
+		delete_option( self::OPTION_PREFIX . $batch_id . '_created_ids' );
 	}
 
 	private static function build_importer( array $config ): Importer {

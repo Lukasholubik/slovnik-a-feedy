@@ -33,6 +33,12 @@ final class Importer {
 	private int $updated = 0;
 	private int $skipped = 0;
 
+	/** Detaily dry-run pro každý řádek – [{title, action, post_id}]. */
+	private array $dry_run_details = [];
+
+	/** ID nově vytvořených postů (pro revert). */
+	private array $created_ids = [];
+
 	public function __construct(
 		private readonly Mapper          $mapper,
 		private readonly TemplateEngine  $engine,
@@ -80,6 +86,11 @@ final class Importer {
 			'updated' => $this->updated,
 			'skipped' => $this->skipped,
 		];
+	}
+
+	/** @return int[] Post IDs nově vytvořených záznamů (pro revert). */
+	public function get_created_ids(): array {
+		return $this->created_ids;
 	}
 
 	// -------------------------------------------------------------------------
@@ -175,6 +186,7 @@ final class Importer {
 			$this->updated++;
 		} else {
 			Logger::info( sprintf( 'Vytvoren: "%s" (ID %d)', $post_data['post_title'], $post_id ), 'import' );
+			$this->created_ids[] = $post_id;
 			$this->created++;
 		}
 	}
