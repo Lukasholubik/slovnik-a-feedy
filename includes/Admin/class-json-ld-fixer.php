@@ -306,7 +306,74 @@ final class JsonLdFixer {
 	 * Registrace AJAX handleru.
 	 */
 	public static function register_ajax(): void {
-		add_action( 'wp_ajax_saf_fix_json_ld', [ static::class, 'ajax_fix_json_ld' ] );
+		add_action( 'wp_ajax_saf_fix_json_ld',       [ static::class, 'ajax_fix_json_ld' ] );
+		add_action( 'wp_ajax_saf_debug_json_ld_post', [ static::class, 'ajax_debug_post' ] );
+	}
+
+	/**
+	 * Debug: zobrazí co fixer vidí v konkrétním postu (podle URL slugu).
+	 * Volání: /wp-admin/admin-ajax.php?action=saf_debug_json_ld_post&slug=welcome-serie&nonce=XXX
+	 */
+	public static function ajax_debug_post(): void {
+		check_ajax_referer( 'saf_fix_json_ld', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Nedostatečná oprávnění.' );
+			return;
+		}
+
+		$slug    = sanitize_title( $_GET['slug'] ?? $_POST['slug'] ?? '' );
+		$post_id = absint( $_GET['post_id'] ?? $_POST['post_id'] ?? 0 );
+
+		if ( ! $post_id && $slug ) {
+			$found = get_posts( [
+				'name'           => $slug,
+				'post_type'      => 'any',
+				'post_status'    => 'publish',
+				'posts_per_page' => 1,
+				'fields'         => 'ids',
+			] );
+			$post_id = $found[0] ?? 0;
+		}
+
+		if ( ! $post_id ) {
+			wp_send_json_error( 'Post nenalezen. Zadej slug= nebo post_id=' );
+			return;
+		}
+
+		$post    = get_post( $post_id );
+		$decoded = html_entity_decode( $post->post_content, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+
+		// Najdi @context
+		$ctx_pos = strpos( $decoded, '@context' );
+
+		// Extrakce
+		$extracted = self::extract_json_ld( $decoded );
+
+		// Aktuální meta
+		$current_meta = get_post_meta( $post_id, self::META_KEY, true );
+
+		// Kontext kolem prvního @context
+		$ctx_context = '';
+		if ( $ctx_pos !== false ) {
+			$ctx_context = substr( $decoded, max( 0, $ctx_pos - 100 ), 300 );
+		}
+
+		wp_send_json_success( [
+			'post_id'            => $post_id,
+			'post_title'         => get_the_title( $post_id ),
+			'content_length'     => strlen( $post->post_content ),
+			'decoded_length'     => strlen( $decoded ),
+			'at_context_found'   => $ctx_pos !== false,
+			'at_context_pos'     => $ctx_pos,
+			'context_around'     => $ctx_context,
+			'extracted_json'     => $extracted ? substr( $extracted[0], 0, 500 ) : null,
+			'extract_start'      => $extracted[1] ?? null,
+			'extract_end'        => $extracted[2] ?? null,
+			'json_valid'         => $extracted ? ( json_decode( $extracted[0] ) !== null ) : false,
+			'current_meta'       => $current_meta ? substr( $current_meta, 0, 200 ) : null,
+			'meta_has_context'   => $current_meta ? str_contains( $current_meta, '@context' ) : false,
+			'content_first_200'  => substr( $decoded, 0, 200 ),
+		] );
 	}
 
 	public static function ajax_fix_json_ld(): void {
