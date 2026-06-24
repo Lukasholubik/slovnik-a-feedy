@@ -113,8 +113,10 @@ final class JsonLdFixer {
 			return 0;
 		}
 
-		// Přeskočit pokud již máme JSON-LD uložen v post meta.
-		if ( get_post_meta( $post_id, self::META_KEY, true ) ) {
+		// Přeskočit pouze pokud meta již obsahuje platný JSON-LD (má @context).
+		// Pozor: předchozí verze fixeru mohla uložit špatná data – v tom případě přepsat.
+		$existing_meta = get_post_meta( $post_id, self::META_KEY, true );
+		if ( $existing_meta && strpos( $existing_meta, '@context' ) !== false ) {
 			return 0;
 		}
 
@@ -169,20 +171,25 @@ final class JsonLdFixer {
 	 * Najde JSON-LD objekt v textu pomocí sledování hloubky závorek.
 	 * Vrátí [json_string, start_offset, end_offset] nebo null.
 	 *
+	 * Strategie: najdi @context, pak skenuj POZPÁTKU k nalezení
+	 * otevírací { tohoto JSON objektu. Předchozí přístup (dopředný sken)
+	 * chybně nacházel první { kde @context bylo kdekoliv v zbytku textu.
+	 *
 	 * @return array{0: string, 1: int, 2: int}|null
 	 */
 	private static function extract_json_ld( string $content ): ?array {
-		$len   = strlen( $content );
-		$start = -1;
+		$len = strlen( $content );
 
-		// Najdi { které patří k JSON-LD (za ním někde "@context").
-		for ( $i = 0; $i < $len; $i++ ) {
-			if ( $content[ $i ] !== '{' ) {
-				continue;
-			}
-			$rest = substr( $content, $i );
-			// Hledáme @context v jakémkoli formátu.
-			if ( strpos( $rest, '@context' ) !== false ) {
+		// Najdi @context (v jakémkoli enkódování).
+		$ctx_pos = strpos( $content, '@context' );
+		if ( $ctx_pos === false ) {
+			return null;
+		}
+
+		// Skenuj pozpátku od @context k nalezení otevírací { JSON objektu.
+		$start = -1;
+		for ( $i = $ctx_pos - 1; $i >= 0; $i-- ) {
+			if ( $content[ $i ] === '{' ) {
 				$start = $i;
 				break;
 			}
