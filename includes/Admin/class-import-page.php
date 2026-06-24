@@ -150,9 +150,31 @@ final class ImportPage {
 				$total_rows++;
 			}
 
-			// Auto-generuj makro jména z názvů sloupců (col → snake_case).
-			$auto_macros  = self::generate_macro_names( $columns );
-			$auto_mapping = $profile ? $profile['mapping'] : Mapper::auto_map( $columns );
+			// Makro jména: preset > profil > auto-generace.
+			// Preset ukládá col → macro_name pro každý sloupec ze souboru.
+			// Pro sloupce které v presetu chybí (nové) auto-generujeme jako základ.
+			$auto_macros = self::generate_macro_names( $columns );
+			if ( $preset && ! empty( $preset['macro_names'] ) ) {
+				foreach ( $preset['macro_names'] as $col => $macro ) {
+					if ( in_array( $col, $columns, true ) ) {
+						$auto_macros[ $col ] = $macro;
+					}
+				}
+			}
+
+			// Mapování sloupců na pole pluginu: preset > profil > auto-detekce.
+			if ( $preset && ! empty( $preset['mapping'] ) ) {
+				$auto_mapping = $preset['mapping'];
+			} elseif ( $profile ) {
+				$auto_mapping = $profile['mapping'];
+			} else {
+				$auto_mapping = Mapper::auto_map( $columns );
+			}
+
+			// Předvyber šablonu z presetu (přepíše last_template_id).
+			if ( $preset && ! empty( $preset['template_id'] ) ) {
+				update_option( 'saf_last_template_id', absint( $preset['template_id'] ) );
+			}
 
 			$session_id = $this->new_session( [
 				'file_path'    => $file_path,
