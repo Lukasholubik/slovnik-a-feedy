@@ -82,6 +82,12 @@ final class JsonLdFixer {
 
 		wp_suspend_cache_invalidation( false );
 
+		// Pročisti celou WP Rocket cache po dokončení dávky.
+		// Per-post čištění uvnitř fix_post() nestačí – stránky se rychle re-cacheují.
+		if ( function_exists( 'rocket_clean_domain' ) ) {
+			rocket_clean_domain();
+		}
+
 		return [
 			'fixed'   => $fixed_posts,
 			'skipped' => $skipped_posts,
