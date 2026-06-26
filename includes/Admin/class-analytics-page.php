@@ -60,9 +60,20 @@ final class AnalyticsPage {
 		$prev_summary = AnalyticsStore::get_summary( $prev_from, $prev_to, $cpt );
 
 		// Top 10 + Bottom 10.
-		$show_zero    = isset( $_GET['show_zero'] ) && $_GET['show_zero'] === '1'; // phpcs:ignore WordPress.Security.NonceVerification
-		$top_pages    = AnalyticsStore::get_pages( $from, $to, $cpt, 'views', 'DESC', 10, 0 );
-		$bottom_pages = AnalyticsStore::get_pages( $from, $to, $cpt, 'views', 'ASC',  10, 0, $show_zero );
+		$show_zero = isset( $_GET['show_zero'] ) && $_GET['show_zero'] === '1'; // phpcs:ignore WordPress.Security.NonceVerification
+
+		$allowed_order_cols = [ 'views', 'clicks', 'avg_time' ];
+
+		$top_order = sanitize_key( $_GET['top_order'] ?? 'views' ); // phpcs:ignore WordPress.Security.NonceVerification
+		$top_order = in_array( $top_order, $allowed_order_cols, true ) ? $top_order : 'views';
+		$top_dir   = ( sanitize_key( $_GET['top_dir'] ?? 'desc' ) === 'asc' ) ? 'ASC' : 'DESC'; // phpcs:ignore
+
+		$bot_order = sanitize_key( $_GET['bot_order'] ?? 'views' ); // phpcs:ignore WordPress.Security.NonceVerification
+		$bot_order = in_array( $bot_order, $allowed_order_cols, true ) ? $bot_order : 'views';
+		$bot_dir   = ( sanitize_key( $_GET['bot_dir'] ?? 'asc' ) === 'asc' ) ? 'ASC' : 'DESC'; // phpcs:ignore
+
+		$top_pages    = AnalyticsStore::get_pages( $from, $to, $cpt, $top_order, $top_dir, 10, 0 );
+		$bottom_pages = AnalyticsStore::get_pages( $from, $to, $cpt, $bot_order, $bot_dir, 10, 0, $show_zero );
 
 		// Diagnostika trackingu.
 		$tracking_active = (bool) get_option( 'saf_track_admins', false );

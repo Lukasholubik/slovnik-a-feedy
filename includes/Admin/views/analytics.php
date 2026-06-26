@@ -19,6 +19,10 @@ $to              = $to              ?? '';
 $cpt             = $cpt             ?? '';
 $order           = $order           ?? 'views';
 $dir             = $dir             ?? 'DESC';
+$top_order       = $top_order       ?? 'views';
+$top_dir         = $top_dir         ?? 'DESC';
+$bot_order       = $bot_order       ?? 'views';
+$bot_dir         = $bot_dir         ?? 'ASC';
 $paged           = $paged           ?? 1;
 $summary         = $summary         ?? [ 'views' => 0, 'clicks' => 0, 'posts' => 0 ];
 $prev_summary    = $prev_summary    ?? [ 'views' => 0, 'clicks' => 0 ];
@@ -51,7 +55,30 @@ wp_localize_script( 'saf-analytics', 'safAnalytics', [
 ] );
 
 $base_url = admin_url( 'admin.php?page=' . AnalyticsPage::PAGE_SLUG );
-$filters  = compact( 'range', 'cpt', 'order', 'dir' );
+$filters  = compact( 'range', 'cpt', 'order', 'dir', 'top_order', 'top_dir', 'bot_order', 'bot_dir' );
+
+// Generuje klikatelné záhlaví sloupce tabulky.
+$sort_link = static function (
+	string $col,
+	string $label,
+	string $cur_order,
+	string $cur_dir,
+	string $order_key,
+	string $dir_key,
+	string $default_new_dir = 'desc'
+) use ( $base_url, $filters ): string {
+	$active   = $cur_order === $col;
+	$next_dir = $active ? ( $cur_dir === 'DESC' ? 'asc' : 'desc' ) : $default_new_dir;
+	$url      = add_query_arg( array_merge( $filters, [ $order_key => $col, $dir_key => $next_dir, 'paged' => 1 ] ), $base_url );
+	$icon     = $active ? ( $cur_dir === 'DESC' ? ' ▼' : ' ▲' ) : '';
+	return sprintf(
+		'<a href="%s" title="%s" style="color:inherit;text-decoration:none;white-space:nowrap%s">%s</a>',
+		esc_url( $url ),
+		esc_attr__( 'Seřadit', 'slovnik-a-feedy' ),
+		$active ? ';font-weight:700' : '',
+		esc_html( $label . $icon )
+	);
+};
 
 // Pomocná formátovací funkce pro sekundy → "1 min 30 s".
 $fmt_time = static function ( int $s ): string {
@@ -237,9 +264,9 @@ $trend_icon = static function ( int $now, int $prev ): string {
 			<table class="wp-list-table widefat striped" style="font-size:12px">
 				<thead><tr>
 					<th><?php esc_html_e( 'Stránka', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:70px;text-align:right"><?php esc_html_e( 'Zobr.', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:70px;text-align:right"><?php esc_html_e( 'Klik.', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:80px;text-align:right"><?php esc_html_e( 'Ø čas', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:70px;text-align:right"><?php echo wp_kses_post( $sort_link( 'views',    'Zobr.', $top_order, $top_dir, 'top_order', 'top_dir' ) ); ?></th>
+					<th style="width:70px;text-align:right"><?php echo wp_kses_post( $sort_link( 'clicks',   'Klik.', $top_order, $top_dir, 'top_order', 'top_dir' ) ); ?></th>
+					<th style="width:80px;text-align:right"><?php echo wp_kses_post( $sort_link( 'avg_time', 'Ø čas', $top_order, $top_dir, 'top_order', 'top_dir' ) ); ?></th>
 				</tr></thead>
 				<tbody>
 				<?php foreach ( $top_pages as $i => $page ) :
@@ -297,9 +324,9 @@ $trend_icon = static function ( int $now, int $prev ): string {
 			<table class="wp-list-table widefat striped" style="font-size:12px">
 				<thead><tr>
 					<th><?php esc_html_e( 'Stránka', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:70px;text-align:right"><?php esc_html_e( 'Zobr.', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:70px;text-align:right"><?php esc_html_e( 'Klik.', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:80px;text-align:right"><?php esc_html_e( 'Ø čas', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:70px;text-align:right"><?php echo wp_kses_post( $sort_link( 'views',    'Zobr.', $bot_order, $bot_dir, 'bot_order', 'bot_dir', 'asc' ) ); ?></th>
+					<th style="width:70px;text-align:right"><?php echo wp_kses_post( $sort_link( 'clicks',   'Klik.', $bot_order, $bot_dir, 'bot_order', 'bot_dir', 'asc' ) ); ?></th>
+					<th style="width:80px;text-align:right"><?php echo wp_kses_post( $sort_link( 'avg_time', 'Ø čas', $bot_order, $bot_dir, 'bot_order', 'bot_dir', 'asc' ) ); ?></th>
 					<th style="width:60px"><?php esc_html_e( 'Akce', 'slovnik-a-feedy' ); ?></th>
 				</tr></thead>
 				<tbody>
@@ -334,19 +361,6 @@ $trend_icon = static function ( int $now, int $prev ): string {
 				<span class="dashicons dashicons-list-view"></span>
 				<?php printf( esc_html__( 'Všechny stránky (%d)', 'slovnik-a-feedy' ), esc_html( $total_pages_count ) ); ?>
 			</h2>
-			<div class="saf-sort-links">
-				<span><?php esc_html_e( 'Řadit:', 'slovnik-a-feedy' ); ?></span>
-				<?php
-				$next_dir = $dir === 'DESC' ? 'asc' : 'desc';
-				foreach ( [ 'views' => 'Zobrazení', 'clicks' => 'Kliknutí', 'avg_time' => 'Ø Čas' ] as $col => $lbl ) :
-					$active = $order === $col;
-				?>
-				<a href="<?php echo esc_url( add_query_arg( array_merge( $filters, [ 'order' => $col, 'dir' => $active ? $next_dir : 'desc', 'paged' => 1 ] ), $base_url ) ); ?>"
-					class="saf-sort-btn <?php echo $active ? 'saf-sort-btn--active' : ''; ?>">
-					<?php echo esc_html( $lbl ); ?><?php if ( $active ) echo $dir === 'DESC' ? ' ▼' : ' ▲'; ?>
-				</a>
-				<?php endforeach; ?>
-			</div>
 		</div>
 
 		<?php if ( $pages ) : ?>
@@ -355,10 +369,10 @@ $trend_icon = static function ( int $now, int $prev ): string {
 				<tr>
 					<th><?php esc_html_e( 'Stránka / URL', 'slovnik-a-feedy' ); ?></th>
 					<th style="width:100px"><?php esc_html_e( 'Stream', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:80px;text-align:right"><?php esc_html_e( 'Zobrazení', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:70px;text-align:right"><?php esc_html_e( 'Kliknutí', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:80px;text-align:right"><?php echo wp_kses_post( $sort_link( 'views',    'Zobrazení', $order, $dir, 'order', 'dir' ) ); ?></th>
+					<th style="width:70px;text-align:right"><?php echo wp_kses_post( $sort_link( 'clicks',   'Kliknutí',  $order, $dir, 'order', 'dir' ) ); ?></th>
 					<th style="width:55px;text-align:right"><?php esc_html_e( 'CTR', 'slovnik-a-feedy' ); ?></th>
-					<th style="width:80px;text-align:right"><?php esc_html_e( 'Ø Čas', 'slovnik-a-feedy' ); ?></th>
+					<th style="width:80px;text-align:right"><?php echo wp_kses_post( $sort_link( 'avg_time', 'Ø Čas',     $order, $dir, 'order', 'dir' ) ); ?></th>
 					<th style="width:90px"><?php esc_html_e( 'Trend 14d', 'slovnik-a-feedy' ); ?></th>
 					<th style="width:55px"><?php esc_html_e( 'Akce', 'slovnik-a-feedy' ); ?></th>
 				</tr>

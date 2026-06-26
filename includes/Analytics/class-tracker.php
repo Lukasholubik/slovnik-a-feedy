@@ -89,6 +89,10 @@ final class Tracker {
 			return;
 		}
 
+		if ( static::already_viewed( $post->ID ) ) {
+			return;
+		}
+
 		static::record_view( $post->ID );
 	}
 
@@ -265,6 +269,28 @@ final class Tracker {
 	// -------------------------------------------------------------------------
 	// Pomocné.
 
+	/**
+	 * Vrátí true pokud tato IP adresa již dnes tuto stránku zobrazila.
+	 * Ukládá transient na 24 hodin – klíč = ip_hash + post_id + datum.
+	 */
+	private static function already_viewed( int $post_id ): bool {
+		if ( get_option( 'saf_unique_views', '1' ) !== '1' ) {
+			return false;
+		}
+
+		$ip      = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ?? 'unknown' ) );
+		$ip_hash = substr( md5( $ip ), 0, 12 );
+		$date    = current_time( 'Y-m-d' );
+		$key     = "saf_seen_{$ip_hash}_{$post_id}_{$date}";
+
+		if ( get_transient( $key ) ) {
+			return true;
+		}
+
+		set_transient( $key, 1, DAY_IN_SECONDS );
+		return false;
+	}
+
 	private static function should_skip(): bool {
 		if ( is_user_logged_in()
 			&& current_user_can( 'manage_options' )
@@ -285,6 +311,14 @@ final class Tracker {
 			'bot', 'crawler', 'spider', 'slurp', 'facebookexternalhit', 'ia_archiver',
 			'msnbot', 'baiduspider', 'yandexbot', 'linkedinbot', 'twitterbot',
 			'ahrefsbot', 'semrushbot', 'dotbot', 'rogerbot', 'mj12bot', 'pinterestbot',
+			// Monitorovací a výkonnostní nástroje.
+			'gtmetrix', 'pingdom', 'uptimerobot', 'statuscake', 'newrelic', 'datadog',
+			'pagespeed', 'lighthouse', 'webpagetest', 'sitechecker', 'checkhost',
+			// Headless prohlížeče a scrapers.
+			'headlesschrome', 'phantomjs', 'prerender', 'selenium',
+			// Generické HTTP klienty (nejsou reální uživatelé).
+			'curl/', 'wget/', 'python-requests', 'go-http-client', 'okhttp', 'axios/',
+			'java/', 'libwww', 'perl/',
 		];
 
 		foreach ( $bots as $pattern ) {

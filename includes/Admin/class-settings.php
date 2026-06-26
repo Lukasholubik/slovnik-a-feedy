@@ -26,6 +26,7 @@ final class Settings {
 		'log_retention'     => 30,
 		'force_overwrite'   => '0',
 		'track_admins'      => '0', // Sledovat i přihlášené adminy (pro testování)
+		'unique_views'      => '1', // Počítat max. 1 zobrazení na IP/den (deduplikace)
 	];
 
 	// -------------------------------------------------------------------------
@@ -78,6 +79,7 @@ final class Settings {
 
 		self::update( 'force_overwrite', empty( $post['force_overwrite'] ) ? '0' : '1' );
 		self::update( 'track_admins',    empty( $post['track_admins'] )    ? '0' : '1' );
+		self::update( 'unique_views',    empty( $post['unique_views'] )    ? '0' : '1' );
 		// Synchronizuj s Tracker options.
 		update_option( 'saf_track_admins', ! empty( $post['track_admins'] ) );
 	}

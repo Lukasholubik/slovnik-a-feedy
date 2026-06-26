@@ -4,6 +4,23 @@ Plugin Grou.cz | Prefix: `saf_` | Namespace: `SlovnikAFeedy` | Textdomain: `slov
 
 ---
 
+## 2026-06-26 – Analytics: deduplikace zobrazení + rozšířená detekce botů
+
+**Problém:** Analytics ukazovaly nafouklá čísla – každé načtení stránky = +1 zobrazení, bez ohledu na to jestli jde o stejného návštěvníka. Zároveň detekce botů nepokrývala výkonnostní nástroje (GTmetrix, Lighthouse) ani headless prohlížeče.
+
+**Změny v `class-tracker.php`:**
+- Nová metoda `already_viewed()` – ukládá transient `saf_seen_{ip_hash}_{post_id}_{datum}` na 24h; každá IP se zaznamená max 1× za den na stránku.
+- `maybe_track_view()` – voláno před `record_view()` pro kontrolu deduplikace.
+- `is_bot()` – rozšířen o: GTmetrix, Pingdom, UptimeRobot, PageSpeed, Lighthouse, WebPageTest, headlesschrome, phantomjs, prerender, selenium, curl, wget, python-requests, go-http-client, okhttp, axios, java/, libwww, perl/.
+
+**Změny v `class-settings.php`:**
+- Nový klíč `unique_views` (default `'1'` = zapnuto) v `DEFAULTS` + `save_from_post()`.
+
+**Změny v `views/settings.php`:**
+- Nový toggle „Unikátní zobrazení" v sekci Analytics.
+
+---
+
 ## 2026-06-23 – v1.0.6 – Thumbnail Sync: párování náhledových obrázků podle slugu
 
 **Nová funkce:** Jednorázové (i opakované) zkopírování `_thumbnail_id` ze zdrojového CPT do cílového CPT podle shodného `post_name` (slugu).

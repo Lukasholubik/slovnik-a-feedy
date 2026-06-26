@@ -115,6 +115,17 @@ $error    = $view_data['error'] ?? '';
 							<p class="description"><?php esc_html_e( 'Výchozí: vypnuto (běžná návštěvnost admina by zkreslovala statistiky). Zapni jen pro testování nebo pokud chceš sledovat i vlastní návštěvy.', 'slovnik-a-feedy' ); ?></p>
 						</td>
 					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Unikátní zobrazení', 'slovnik-a-feedy' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="unique_views" value="1"
+									<?php checked( $settings['unique_views'] ?? '1', '1' ); ?>>
+								<?php esc_html_e( 'Počítat max. 1 zobrazení na návštěvníka za den (dle IP adresy)', 'slovnik-a-feedy' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Eliminuje opakované načítání stejné stránky jedním uživatelem – každá IP se zaznamená pouze jednou za den. Výchozí: zapnuto.', 'slovnik-a-feedy' ); ?></p>
+						</td>
+					</tr>
 				</table>
 				<p>
 					<a href="<?php echo esc_url( admin_url( 'admin.php?page=slovnik-a-feedy-analytics' ) ); ?>" class="button">
